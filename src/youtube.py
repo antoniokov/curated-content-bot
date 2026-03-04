@@ -42,7 +42,7 @@ def fetch_channel_videos(channel_id, api_key, max_per_page=50, known_ids=None):
             params["pageToken"] = page_token
         url = f"https://www.googleapis.com/youtube/v3/playlistItems?{urllib.parse.urlencode(params)}"
         try:
-            resp = urllib.request.urlopen(url)
+            resp = urllib.request.urlopen(url, timeout=15)
             data = json.loads(resp.read())
         except urllib.error.HTTPError as e:
             logger.error("playlistItems error %d for %s: %s", e.code, channel_id, e.read().decode())
@@ -106,7 +106,7 @@ def fetch_video_details(video_ids, api_key):
         }
         url = f"https://www.googleapis.com/youtube/v3/videos?{urllib.parse.urlencode(params)}"
         try:
-            resp = urllib.request.urlopen(url)
+            resp = urllib.request.urlopen(url, timeout=15)
             data = json.loads(resp.read())
         except urllib.error.HTTPError as e:
             logger.error("videos.list error %d: %s", e.code, e.read().decode())

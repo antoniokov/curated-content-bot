@@ -87,7 +87,7 @@ YOUTUBE_VIDEOS_RESPONSE = {
 }
 
 
-def _mock_youtube_urlopen(url):
+def _mock_youtube_urlopen(url, **kwargs):
     """Return different mock responses for playlistItems vs videos.list URLs."""
     mock_resp = MagicMock()
     if "playlistItems" in url:

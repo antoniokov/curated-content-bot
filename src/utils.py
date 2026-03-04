@@ -78,6 +78,11 @@ def format_duration(total_seconds):
     return f"{s}s"
 
 
+def escape_html(text):
+    """Escape special characters for Telegram HTML parse mode."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def format_views(count):
     """Format view count: '1.2M views', '150K views', '8.5K views'. Returns '' for None."""
     if count is None:

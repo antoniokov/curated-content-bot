@@ -11,6 +11,7 @@
 [x] Add /rebuild command for full cache rebuild (vs incremental /refresh). Fix YouTube date display and add end-to-end test.
 [x] Add video/podcast duration and YouTube view count next to the published date
 [x] Make embedding model truly local (local_files_only=True) and add /updatemodel command
+[x] Production hardening: --dev/prod split, auth check, XXE fix, HTTP timeouts, graceful shutdown, HTML escaping, pinned deps
 
 ## TODO
 [] Ensure  easy updates with minimalistic CI/CD

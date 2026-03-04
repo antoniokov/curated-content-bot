@@ -22,7 +22,7 @@ YouTube links auto-unfurl into rich previews. Podcast episodes show as photo car
 ```
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
 Create a `.env` file with your API keys:
@@ -30,7 +30,10 @@ Create a `.env` file with your API keys:
 ```
 YOUTUBE_API_KEY=...
 TELEGRAM_BOT_TOKEN=...
+ALLOWED_CHAT_IDS=123456789
 ```
+
+`ALLOWED_CHAT_IDS` is a comma-separated list of Telegram user IDs allowed to use the bot. In dev mode (`--dev`), this check is skipped.
 
 Add your creators to `data/creators.csv` (columns: type, name, url, channel_id, apple_podcasts_id).
 
@@ -38,10 +41,10 @@ Add your creators to `data/creators.csv` (columns: type, name, url, channel_id, 
 
 ```
 source .venv/bin/activate
-python3 bot.py                              # all creators
-python3 bot.py --creators creators_test.csv # test YouTube (2 channels)
-python3 bot.py --creators podcasts_test.csv # test podcasts (3 podcasts)
-python3 bot.py --creators podcasts_all.csv  # all podcasts only (no YouTube quota)
+python3 bot.py --dev                              # dev mode (auto-reload, no auth, DEBUG logging)
+python3 bot.py --dev --creators creators_test.csv # dev with test YouTube (2 channels)
+python3 bot.py --dev --creators podcasts_test.csv # dev with test podcasts (3 podcasts)
+python3 bot.py                                    # production mode (no auto-reload, auth enforced)
 ```
 
 ## Bot commands
@@ -79,5 +82,6 @@ data/
 
 ```
 source .venv/bin/activate
+pip install -r requirements-dev.txt
 python3 -m pytest tests/test_bot.py -v
 ```

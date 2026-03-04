@@ -15,7 +15,7 @@ def tg_request(method, token, data=None):
         req = urllib.request.Request(url, body, {"Content-Type": "application/json"})
     else:
         req = urllib.request.Request(url)
-    resp = urllib.request.urlopen(req)
+    resp = urllib.request.urlopen(req, timeout=60)
     return json.loads(resp.read())
 
 

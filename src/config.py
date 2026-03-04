@@ -15,11 +15,11 @@ LOG_DIR = os.path.join(PROJECT_DIR, "logs")
 LOG_FILE = os.path.join(LOG_DIR, "bot.log")
 
 
-def setup_logging():
+def setup_logging(debug=False):
     """Configure logging to write to both stderr and a rotating log file."""
     os.makedirs(LOG_DIR, exist_ok=True)
     root = logging.getLogger()
-    root.setLevel(logging.INFO)
+    root.setLevel(logging.DEBUG if debug else logging.INFO)
     fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     stderr_handler = logging.StreamHandler()
@@ -41,6 +41,14 @@ def load_env():
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
                 env[key.strip()] = value.strip()
+
+    # Parse ALLOWED_CHAT_IDS as a set of ints
+    raw_ids = env.get("ALLOWED_CHAT_IDS", "")
+    if raw_ids:
+        env["ALLOWED_CHAT_IDS"] = {int(x.strip()) for x in raw_ids.split(",") if x.strip()}
+    else:
+        env["ALLOWED_CHAT_IDS"] = set()
+
     return env
 
 

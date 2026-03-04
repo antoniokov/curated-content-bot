@@ -4,11 +4,12 @@ import argparse
 import glob
 import logging
 import os
+import signal
 import sys
 import time
 
 from src.config import load_env, load_creators, setup_logging, MAX_RESULTS
-from src.utils import truncate, format_date, format_duration, format_views
+from src.utils import truncate, format_date, format_duration, format_views, escape_html
 from src.embeddings import update_embed_model
 from src.youtube import get_youtube_cache, build_youtube_cache, search_youtube_cache
 from src.podcast import get_podcast_cache, build_podcast_cache, search_all_podcasts
@@ -58,12 +59,12 @@ def send_search_results(tg_token, chat_id, results):
         else:
             send_message(tg_token, chat_id, f"🎙 {group['creator']}", disable_preview=True)
             for ep in group["episodes"]:
-                short_desc = truncate(ep.get("description", ""), 200)
+                short_desc = escape_html(truncate(ep.get("description", ""), 200))
                 meta = [p for p in [
                     format_date(ep.get("published_at", "")),
                     format_duration(ep.get("duration")),
                 ] if p]
-                caption = f"<code>{ep['title']}</code>"
+                caption = f"<code>{escape_html(ep['title'])}</code>"
                 if meta:
                     caption += f"\n\n{' · '.join(meta)}"
                 if short_desc:
@@ -139,23 +140,38 @@ def _check_reload():
 
 # --- Main loop ---
 
-def main():
-    setup_logging()
+_shutdown = False
 
+
+def _handle_signal(signum, frame):
+    global _shutdown
+    logger.info("Received signal %s, shutting down gracefully...", signum)
+    _shutdown = True
+
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--creators", default="creators.csv", help="Path to creators CSV (default: creators.csv)")
+    parser.add_argument("--dev", action="store_true", help="Dev mode: enable auto-reload, skip auth check, DEBUG logging")
     args = parser.parse_args()
+
+    setup_logging(debug=args.dev)
+
+    signal.signal(signal.SIGTERM, _handle_signal)
+    signal.signal(signal.SIGINT, _handle_signal)
 
     env = load_env()
     yt_key = env.get("YOUTUBE_API_KEY")
     tg_token = env.get("TELEGRAM_BOT_TOKEN")
+    allowed_chat_ids = env.get("ALLOWED_CHAT_IDS", set())
 
     if not yt_key or not tg_token:
         logger.error("YOUTUBE_API_KEY and TELEGRAM_BOT_TOKEN must be set in .env")
         sys.exit(1)
 
     yt_creators, podcasts = load_creators(args.creators)
-    logger.info("Bot started. Watching %d YouTube channels + %d podcasts.", len(yt_creators), len(podcasts))
+    mode = "dev" if args.dev else "production"
+    logger.info("Bot started (%s). Watching %d YouTube channels + %d podcasts.", mode, len(yt_creators), len(podcasts))
 
     # Pre-build caches + embeddings on startup if needed
     yt_channels, yt_embeddings, yt_index = None, None, None
@@ -167,8 +183,9 @@ def main():
         pod_feeds, pod_embeddings, pod_index = get_podcast_cache(podcasts)
 
     offset = 0
-    while True:
-        _check_reload()
+    while not _shutdown:
+        if args.dev:
+            _check_reload()
         try:
             updates = tg_request("getUpdates", tg_token, {
                 "offset": offset,
@@ -186,6 +203,11 @@ def main():
             chat_id = msg.get("chat", {}).get("id")
 
             if not text or not chat_id:
+                continue
+
+            # Auth check (skipped in dev mode)
+            if not args.dev and allowed_chat_ids and chat_id not in allowed_chat_ids:
+                logger.warning("Unauthorized chat_id: %s", chat_id)
                 continue
 
             # Handle /start command
@@ -226,6 +248,7 @@ def main():
                 continue
 
             # Search
+            text = text[:200]
             logger.info('Searching for "%s"...', text)
 
             parts = []
@@ -250,3 +273,5 @@ def main():
             results = merge_search_results(yt_results, pod_results)
 
             send_search_results(tg_token, chat_id, results)
+
+    logger.info("Shutdown complete.")
