@@ -14,28 +14,22 @@ Telegram bot (`@TrustedResearchBot`). YouTube links auto-unfurl into rich previe
 
 ### How it works
 
-**YouTube** (keyword search via API):
+Both YouTube and podcasts follow the same pattern: **cache locally, search via embeddings**.
 
-1. I send a topic to the Telegram bot (e.g. `airships`)
-2. The bot searches all 96 YouTube channels via the YouTube Data API v3
-3. Results go through a 3-phase pipeline:
-   - **Search** each channel (100 API units per channel)
-   - **Fetch full descriptions** for all candidate videos (1 unit per 50 videos)
-   - **Filter by relevance** — only keep videos whose title or full description mentions the topic
-4. Results are sent back grouped by creator, capped at 7 total
-
-**Podcasts** (semantic search via embeddings):
-
-1. RSS feeds for all 59 podcasts are fetched and cached locally (refreshed once per day, or on `/refresh`)
-2. Episode titles and descriptions are embedded using the `all-MiniLM-L6-v2` model (sentence-transformers)
-3. On each search, the topic is embedded and compared against all episode embeddings using cosine similarity
-4. Results above the similarity threshold are returned as rich cards (thumbnail + title + description)
+1. On startup (or `/refresh`), all content is fetched and cached locally:
+   - **YouTube**: all videos from each channel's uploads playlist via `playlistItems.list` (incremental — only new videos on subsequent refreshes)
+   - **Podcasts**: all episodes from each podcast's RSS feed
+2. Titles and descriptions are embedded using the `all-MiniLM-L6-v2` model (sentence-transformers)
+3. On each search, the topic is embedded and compared against all cached embeddings using cosine similarity, with keyword fallback
+4. Results are sent back grouped by creator, capped at 7 per source
 
 ### Data
 
 - `creators.csv` — 96 YouTube channels + 59 podcasts (type, name, url, channel_id, apple_podcasts_id)
 - `.env` — YouTube Data API key + Telegram bot token
 - `bot.py` — the main bot script (long-polling, no server needed)
+- `.youtube_cache.json` — cached YouTube video metadata (auto-generated)
+- `.youtube_embeddings.npz` — cached YouTube video embeddings (auto-generated)
 - `.podcast_cache.json` — cached RSS feed data (auto-generated)
 - `.podcast_embeddings.npz` — cached episode embeddings (auto-generated)
 
@@ -60,8 +54,15 @@ python3 bot.py --creators podcasts_all.csv  # all podcasts only (no YouTube quot
 ### Bot commands
 
 - `/start` — show help
-- `/refresh` — re-fetch all podcast RSS feeds and recompute embeddings
+- `/refresh` — re-fetch YouTube videos and podcast feeds, recompute embeddings
 
 ### API quota
 
-Each full YouTube search costs ~9,600 units (96 channels × 100 units). The free tier is 10,000 units/day (resets midnight Pacific). Podcast search is free (local RSS + embeddings).
+YouTube uses `playlistItems.list` (1 unit per 50 videos) instead of `search.list` (100 units per channel). Initial full cache build costs ~576 units; incremental daily refreshes cost ~96–200 units. Searches themselves cost 0 units. The free tier is 10,000 units/day (resets midnight Pacific). Podcast search is free (local RSS + embeddings).
+
+### TODO
+
+[x] Optimize YouTube quota usage via caching
+[] Add a command to check the current daily YouTube quota available
+[] Store local logs to help with future troubleshooting
+[] Allow to add a creator from Telegram bot (does it need AI to enrich things?)
