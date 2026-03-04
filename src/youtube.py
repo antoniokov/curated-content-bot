@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 from src.config import DATA_DIR, CACHE_MAX_AGE, SIMILARITY_THRESHOLD
 from src.embeddings import get_embed_model
-from src.utils import truncate
+from src.utils import truncate, parse_iso8601_duration
 
 
 # --- Fetching ---
@@ -79,7 +79,49 @@ def fetch_channel_videos(channel_id, api_key, max_per_page=50, known_ids=None):
         if not page_token:
             break
 
+    # Fetch duration and view count for all new videos
+    if videos:
+        details = fetch_video_details([v["video_id"] for v in videos], api_key)
+        for v in videos:
+            info = details.get(v["video_id"], {})
+            v["duration"] = info.get("duration")
+            v["views"] = info.get("views")
+
     return videos
+
+
+def fetch_video_details(video_ids, api_key):
+    """Fetch duration and view count for videos via videos.list API.
+
+    Batches up to 50 IDs per request (1 API unit each).
+    Returns {video_id: {"duration": seconds_int, "views": int}}.
+    """
+    details = {}
+    for i in range(0, len(video_ids), 50):
+        batch = video_ids[i:i + 50]
+        params = {
+            "part": "contentDetails,statistics",
+            "id": ",".join(batch),
+            "key": api_key,
+        }
+        url = f"https://www.googleapis.com/youtube/v3/videos?{urllib.parse.urlencode(params)}"
+        try:
+            resp = urllib.request.urlopen(url)
+            data = json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            logger.error("videos.list error %d: %s", e.code, e.read().decode())
+            continue
+
+        for item in data.get("items", []):
+            vid_id = item.get("id", "")
+            content = item.get("contentDetails", {})
+            stats = item.get("statistics", {})
+            duration = parse_iso8601_duration(content.get("duration", ""))
+            views_str = stats.get("viewCount")
+            views = int(views_str) if views_str else None
+            details[vid_id] = {"duration": duration, "views": views}
+
+    return details
 
 
 # --- Caching ---

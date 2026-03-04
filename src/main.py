@@ -8,7 +8,7 @@ import sys
 import time
 
 from src.config import load_env, load_creators, setup_logging, MAX_RESULTS
-from src.utils import truncate, format_date
+from src.utils import truncate, format_date, format_duration, format_views
 from src.youtube import get_youtube_cache, build_youtube_cache, search_youtube_cache
 from src.podcast import get_podcast_cache, build_podcast_cache, search_all_podcasts
 from src.telegram import tg_request, send_message, send_video_url, send_photo
@@ -44,20 +44,27 @@ def send_search_results(tg_token, chat_id, results):
         if group["source"] == "youtube":
             send_message(tg_token, chat_id, f"📺 {group['creator']}", disable_preview=True)
             for video in group["videos"]:
-                date_str = format_date(video.get("published_at", ""))
+                meta = [p for p in [
+                    format_date(video.get("published_at", "")),
+                    format_duration(video.get("duration")),
+                    format_views(video.get("views")),
+                ] if p]
                 url = video["url"]
-                if date_str:
-                    url = f"{date_str}\n\n{url}"
+                if meta:
+                    url = f"{' · '.join(meta)}\n\n{url}"
                 send_video_url(tg_token, chat_id, url)
             total_results += len(group["videos"])
         else:
             send_message(tg_token, chat_id, f"🎙 {group['creator']}", disable_preview=True)
             for ep in group["episodes"]:
                 short_desc = truncate(ep.get("description", ""), 200)
-                date_str = format_date(ep.get("published_at", ""))
+                meta = [p for p in [
+                    format_date(ep.get("published_at", "")),
+                    format_duration(ep.get("duration")),
+                ] if p]
                 caption = f"<code>{ep['title']}</code>"
-                if date_str:
-                    caption += f"\n\n{date_str}"
+                if meta:
+                    caption += f"\n\n{' · '.join(meta)}"
                 if short_desc:
                     caption += f"\n\n{short_desc}"
                 thumb = ep.get("thumbnail", "")

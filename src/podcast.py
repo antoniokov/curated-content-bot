@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 from src.config import DATA_DIR, CACHE_MAX_AGE, SIMILARITY_THRESHOLD
 from src.embeddings import get_embed_model
-from src.utils import strip_html, truncate
+from src.utils import strip_html, truncate, parse_podcast_duration
 
 
 # XML namespaces used in podcast feeds
@@ -106,6 +106,10 @@ def fetch_rss_episodes(feed_url, timeout=10):
             except Exception:
                 pass
 
+        # Parse duration (itunes:duration can be seconds, MM:SS, or HH:MM:SS)
+        duration_raw = item.findtext("itunes:duration", "", NS).strip()
+        duration = parse_podcast_duration(duration_raw) if duration_raw else None
+
         if title:
             episodes.append({
                 "title": title,
@@ -113,6 +117,7 @@ def fetch_rss_episodes(feed_url, timeout=10):
                 "link": best_link,
                 "thumbnail": thumb,
                 "published_at": published_at,
+                "duration": duration,
             })
     return episodes
 

@@ -11,7 +11,9 @@ import pytest
 from sentence_transformers import SentenceTransformer
 
 from src.config import DATA_DIR, load_creators, MAX_RESULTS
-from src.utils import strip_html, truncate, format_date
+from src.utils import (strip_html, truncate, format_date,
+                       parse_iso8601_duration, parse_podcast_duration,
+                       format_duration, format_views)
 from src.youtube import fetch_channel_videos, search_youtube_cache
 from src.podcast import fetch_rss_episodes, search_all_podcasts
 from src.main import merge_search_results, send_search_results
@@ -38,7 +40,7 @@ def encode_and_normalize(texts):
     return emb / norms
 
 
-YOUTUBE_API_RESPONSE = {
+YOUTUBE_PLAYLIST_RESPONSE = {
     "items": [
         {
             "snippet": {
@@ -66,6 +68,31 @@ YOUTUBE_API_RESPONSE = {
     "nextPageToken": None,
 }
 
+YOUTUBE_VIDEOS_RESPONSE = {
+    "items": [
+        {
+            "id": "vid_abc",
+            "contentDetails": {"duration": "PT1H23M45S"},
+            "statistics": {"viewCount": "1500000", "likeCount": "50000"},
+        },
+        {
+            "id": "vid_def",
+            "contentDetails": {"duration": "PT12M30S"},
+            "statistics": {"viewCount": "8500"},
+        },
+    ],
+}
+
+
+def _mock_youtube_urlopen(url):
+    """Return different mock responses for playlistItems vs videos.list URLs."""
+    mock_resp = MagicMock()
+    if "playlistItems" in url:
+        mock_resp.read.return_value = json.dumps(YOUTUBE_PLAYLIST_RESPONSE).encode()
+    else:
+        mock_resp.read.return_value = json.dumps(YOUTUBE_VIDEOS_RESPONSE).encode()
+    return mock_resp
+
 RSS_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"
      xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"
@@ -79,12 +106,14 @@ RSS_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
       <pubDate>Fri, 15 Mar 2024 10:00:00 +0000</pubDate>
       <link>https://example.com/ep/ml-fundamentals</link>
       <itunes:image href="https://example.com/ep1.jpg"/>
+      <itunes:duration>2978</itunes:duration>
     </item>
     <item>
       <title>Best Coffee Brewing Methods</title>
       <description>Pour-over vs French press vs espresso.</description>
       <pubDate>Wed, 20 Feb 2024 08:30:00 +0000</pubDate>
       <link>https://example.com/ep/coffee</link>
+      <itunes:duration>45:30</itunes:duration>
     </item>
   </channel>
 </rss>"""
@@ -115,11 +144,8 @@ def test_load_creators():
 
 
 def test_fetch_channel_videos():
-    """YouTube API response → video dicts with all required fields."""
-    mock_resp = MagicMock()
-    mock_resp.read.return_value = json.dumps(YOUTUBE_API_RESPONSE).encode()
-
-    with patch("urllib.request.urlopen", return_value=mock_resp):
+    """YouTube API response → video dicts with all required fields including duration and views."""
+    with patch("urllib.request.urlopen", side_effect=_mock_youtube_urlopen):
         videos = fetch_channel_videos("UCxxxxA", "fake_key")
 
     assert len(videos) == 2
@@ -130,17 +156,18 @@ def test_fetch_channel_videos():
     assert "backpropagation" in v["description"]
     assert v["thumbnail"] == "https://img.youtube.com/vi/vid_abc/hq.jpg"
     assert v["published_at"] == "2024-03-15"
+    assert v["duration"] == 5025  # 1h 23m 45s
+    assert v["views"] == 1500000
     # Second video falls back to medium thumbnail
     assert videos[1]["thumbnail"] == "https://img.youtube.com/vi/vid_def/mq.jpg"
     assert videos[1]["published_at"] == "2024-02-20"
+    assert videos[1]["duration"] == 750  # 12m 30s
+    assert videos[1]["views"] == 8500
 
 
 def test_fetch_channel_videos_incremental():
     """known_ids stops pagination early — known video is excluded."""
-    mock_resp = MagicMock()
-    mock_resp.read.return_value = json.dumps(YOUTUBE_API_RESPONSE).encode()
-
-    with patch("urllib.request.urlopen", return_value=mock_resp):
+    with patch("urllib.request.urlopen", side_effect=_mock_youtube_urlopen):
         videos = fetch_channel_videos("UCxxxxA", "fake_key", known_ids={"vid_def"})
 
     # Should stop at vid_def, only vid_abc returned
@@ -164,6 +191,7 @@ def test_fetch_rss_episodes():
     assert ep["link"] == "https://example.com/ep/ml-fundamentals"
     assert ep["thumbnail"] == "https://example.com/ep1.jpg"
     assert ep["published_at"] == "2024-03-15"
+    assert ep["duration"] == 2978  # seconds
     # HTML stripped and entities decoded
     assert "<p>" not in ep["description"]
     assert "<b>" not in ep["description"]
@@ -173,6 +201,7 @@ def test_fetch_rss_episodes():
     # Second episode falls back to channel-level itunes:image
     assert episodes[1]["thumbnail"] == "https://example.com/pod.jpg"
     assert episodes[1]["published_at"] == "2024-02-20"
+    assert episodes[1]["duration"] == 2730  # 45:30 → 45*60+30
 
 
 def test_strip_html():
@@ -189,6 +218,51 @@ def test_format_date():
     assert format_date("") == ""
     assert format_date(None) == ""
     assert format_date("not-a-date") == ""
+
+
+def test_parse_iso8601_duration():
+    """YouTube ISO 8601 duration → total seconds."""
+    assert parse_iso8601_duration("PT1H23M45S") == 5025
+    assert parse_iso8601_duration("PT5M30S") == 330
+    assert parse_iso8601_duration("PT45S") == 45
+    assert parse_iso8601_duration("PT2H") == 7200
+    assert parse_iso8601_duration("PT0S") == 0
+    assert parse_iso8601_duration("") is None
+    assert parse_iso8601_duration(None) is None
+    assert parse_iso8601_duration("garbage") is None
+
+
+def test_parse_podcast_duration():
+    """Podcast duration in various formats → total seconds."""
+    assert parse_podcast_duration("2978") == 2978
+    assert parse_podcast_duration("01:18:21") == 4701
+    assert parse_podcast_duration("5:30") == 330
+    assert parse_podcast_duration("1:18:21") == 4701
+    assert parse_podcast_duration("") is None
+    assert parse_podcast_duration(None) is None
+    assert parse_podcast_duration("abc") is None
+
+
+def test_format_duration():
+    """Total seconds → human-readable duration string."""
+    assert format_duration(5025) == "1h 23m"
+    assert format_duration(330) == "5m"
+    assert format_duration(45) == "45s"
+    assert format_duration(7200) == "2h"
+    assert format_duration(3600) == "1h"
+    assert format_duration(None) == ""
+    assert format_duration(0) == ""
+
+
+def test_format_views():
+    """View count → human-readable string."""
+    assert format_views(1500000) == "1.5M views"
+    assert format_views(1000000) == "1M views"
+    assert format_views(150000) == "150K views"
+    assert format_views(8500) == "8.5K views"
+    assert format_views(1000) == "1K views"
+    assert format_views(500) == "500 views"
+    assert format_views(None) == ""
 
 
 def test_truncate():
@@ -427,29 +501,31 @@ def test_merge_search_results_preserves_group_structure():
     assert len(pod_group["episodes"]) == 1
 
 
-def test_published_dates_flow_from_search_to_telegram():
-    """End-to-end: published dates survive search → merge → display for both sources."""
-    # YouTube channel with published_at (as built by fetch_channel_videos)
+def test_metadata_flows_from_search_to_telegram():
+    """End-to-end: date, duration, views survive search → merge → display for both sources."""
+    # YouTube channel with published_at, duration, views (as built by fetch_channel_videos)
     yt_videos = [
         {"title": "How Neural Networks Learn", "video_id": "v1",
          "url": "https://youtube.com/watch?v=v1", "published_at": "2024-03-15",
-         "description": "Backpropagation and gradient descent", "thumbnail": "https://img/v1.jpg"},
+         "description": "Backpropagation and gradient descent", "thumbnail": "https://img/v1.jpg",
+         "duration": 5025, "views": 1500000},
         {"title": "Cooking Italian Pasta", "video_id": "v2",
          "url": "https://youtube.com/watch?v=v2", "published_at": "2024-02-20",
-         "description": "Traditional recipes from Tuscany", "thumbnail": "https://img/v2.jpg"},
+         "description": "Traditional recipes from Tuscany", "thumbnail": "https://img/v2.jpg",
+         "duration": 750, "views": 8500},
     ]
     channels = {
         "https://yt.com/@ai": {"name": "AI Channel", "channel_id": "UC1", "videos": yt_videos},
     }
 
-    # Podcast feed with published_at (as built by fetch_rss_episodes)
+    # Podcast feed with published_at and duration (as built by fetch_rss_episodes)
     pod_episodes = [
         {"title": "Machine Learning Fundamentals", "description": "Intro to ML and deep learning",
          "link": "https://example.com/ep/ml", "thumbnail": "https://img/ml.jpg",
-         "published_at": "2024-01-10"},
+         "published_at": "2024-01-10", "duration": 2978},
         {"title": "Best Pizza in New York", "description": "Food tour of NYC pizzerias",
          "link": "https://example.com/ep/pizza", "thumbnail": "https://img/pizza.jpg",
-         "published_at": "2024-01-05"},
+         "published_at": "2024-01-05", "duration": 1800},
     ]
     feeds = {
         "https://feed.example.com/ai": {
@@ -495,16 +571,22 @@ def test_published_dates_flow_from_search_to_telegram():
 
         send_search_results("token", 123, results)
 
-        # YouTube: date must be in the video URL message
+        # YouTube: date, duration, and views must be in the video URL message
         video_calls = mock_video.call_args_list
         assert len(video_calls) >= 1, "No YouTube video messages sent"
         video_text = video_calls[0].args[2]
         assert "Mar 15, 2024" in video_text, (
             f"YouTube message missing date. Got: {video_text!r}")
+        assert "1h 23m" in video_text, (
+            f"YouTube message missing duration. Got: {video_text!r}")
+        assert "1.5M views" in video_text, (
+            f"YouTube message missing views. Got: {video_text!r}")
 
-        # Podcast: date must be in the photo caption
+        # Podcast: date and duration must be in the photo caption
         photo_calls = mock_photo.call_args_list
         assert len(photo_calls) >= 1, "No podcast photo messages sent"
         caption = photo_calls[0].kwargs["caption"]
         assert "Jan 10, 2024" in caption, (
             f"Podcast caption missing date. Got: {caption!r}")
+        assert "49m" in caption, (
+            f"Podcast caption missing duration. Got: {caption!r}")

@@ -52,7 +52,7 @@ python3 bot.py --creators podcasts_all.csv  # all podcasts only (no YouTube quot
 
 ## API quota
 
-YouTube uses `playlistItems.list` (1 unit per 50 videos) instead of `search.list` (100 units per channel). Initial full cache build costs ~576 units; incremental daily refreshes cost ~96–200 units. Searches themselves cost 0 units. The free tier is 10,000 units/day (resets midnight Pacific). Podcast search is free (local RSS + embeddings).
+YouTube uses `playlistItems.list` (1 unit per 50 videos) and `videos.list` (1 unit per 50 videos) for metadata. Initial full cache build costs ~960 units; incremental daily refreshes cost ~100–250 units. Searches themselves cost 0 units. The free tier is 10,000 units/day (resets midnight Pacific). Podcast search is free (local RSS + embeddings).
 
 ## Project structure
 
@@ -60,14 +60,14 @@ YouTube uses `playlistItems.list` (1 unit per 50 videos) instead of `search.list
 bot.py                  — entry point
 src/
   config.py             — paths, constants, load_env(), load_creators()
-  utils.py              — strip_html(), truncate()
+  utils.py              — text helpers, duration/views formatting
   embeddings.py         — lazy-loaded sentence-transformers model
   youtube.py            — YouTube fetch, cache, search
   podcast.py            — podcast RSS fetch, cache, search
   telegram.py           — Telegram Bot API helpers
   main.py               — main loop, command handling, auto-reload
 tests/
-  test_bot.py           — 14 pytest tests covering the core pipeline
+  test_bot.py           — 18 pytest tests covering the core pipeline
 data/
   creators.csv          — 96 YouTube channels + 59 podcasts
   (auto-generated cache and embedding files)
