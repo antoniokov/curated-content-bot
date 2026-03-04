@@ -1,13 +1,33 @@
 """Project configuration: paths, constants, and data loading."""
 
 import csv
+import logging
 import os
+from logging.handlers import RotatingFileHandler
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(PROJECT_DIR, "data")
 
 CACHE_MAX_AGE = 24 * 60 * 60  # 24 hours in seconds
 SIMILARITY_THRESHOLD = 0.45    # minimum cosine similarity to consider relevant
+LOG_DIR = os.path.join(PROJECT_DIR, "logs")
+LOG_FILE = os.path.join(LOG_DIR, "bot.log")
+
+
+def setup_logging():
+    """Configure logging to write to both stderr and a rotating log file."""
+    os.makedirs(LOG_DIR, exist_ok=True)
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+    stderr_handler = logging.StreamHandler()
+    stderr_handler.setFormatter(fmt)
+    root.addHandler(stderr_handler)
+
+    file_handler = RotatingFileHandler(LOG_FILE, maxBytes=1_000_000, backupCount=3)
+    file_handler.setFormatter(fmt)
+    root.addHandler(file_handler)
 
 
 def load_env():

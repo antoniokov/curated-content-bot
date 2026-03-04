@@ -1,8 +1,10 @@
 """Telegram Bot API helpers."""
 
 import json
-import sys
+import logging
 import urllib.request
+
+logger = logging.getLogger(__name__)
 
 
 def tg_request(method, token, data=None):
@@ -50,5 +52,5 @@ def send_photo(token, chat_id, photo_url, caption="", parse_mode=None):
         tg_request("sendPhoto", token, data)
     except Exception as e:
         # Fallback to text if photo fails
-        print(f"  sendPhoto failed: {e}, falling back to text", file=sys.stderr)
+        logger.warning("sendPhoto failed: %s, falling back to text", e)
         send_message(token, chat_id, caption, disable_preview=True)

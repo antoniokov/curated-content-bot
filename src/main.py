@@ -2,11 +2,12 @@
 
 import argparse
 import glob
+import logging
 import os
 import sys
 import time
 
-from src.config import load_env, load_creators
+from src.config import load_env, load_creators, setup_logging
 from src.utils import truncate
 from src.youtube import get_youtube_cache, build_youtube_cache, search_youtube_cache
 from src.podcast import get_podcast_cache, build_podcast_cache, search_all_podcasts
@@ -14,6 +15,8 @@ from src.telegram import tg_request, send_message, send_video_url, send_photo
 
 
 # --- Auto-reload ---
+
+logger = logging.getLogger(__name__)
 
 _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -37,13 +40,15 @@ _start_mtime = _max_src_mtime()
 def _check_reload():
     """Restart the process if any src/*.py file has been modified since startup."""
     if _max_src_mtime() > _start_mtime:
-        print("\n🔄 src/ changed — reloading...", file=sys.stderr)
+        logger.info("src/ changed — reloading...")
         os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
 # --- Main loop ---
 
 def main():
+    setup_logging()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--creators", default="creators.csv", help="Path to creators CSV (default: creators.csv)")
     args = parser.parse_args()
@@ -53,11 +58,11 @@ def main():
     tg_token = env.get("TELEGRAM_BOT_TOKEN")
 
     if not yt_key or not tg_token:
-        print("Error: YOUTUBE_API_KEY and TELEGRAM_BOT_TOKEN must be set in .env", file=sys.stderr)
+        logger.error("YOUTUBE_API_KEY and TELEGRAM_BOT_TOKEN must be set in .env")
         sys.exit(1)
 
     yt_creators, podcasts = load_creators(args.creators)
-    print(f"Bot started. Watching {len(yt_creators)} YouTube channels + {len(podcasts)} podcasts.", file=sys.stderr)
+    logger.info("Bot started. Watching %d YouTube channels + %d podcasts.", len(yt_creators), len(podcasts))
 
     # Pre-build caches + embeddings on startup if needed
     yt_channels, yt_embeddings, yt_index = None, None, None
@@ -77,7 +82,7 @@ def main():
                 "timeout": 30
             })
         except Exception as e:
-            print(f"Polling error: {e}", file=sys.stderr)
+            logger.error("Polling error: %s", e)
             time.sleep(5)
             continue
 
@@ -114,7 +119,7 @@ def main():
                 continue
 
             # Search
-            print(f"Searching for \"{text}\"...", file=sys.stderr)
+            logger.info('Searching for "%s"...', text)
 
             parts = []
             if yt_creators:

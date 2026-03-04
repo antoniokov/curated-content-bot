@@ -1,14 +1,16 @@
 """YouTube video fetching, caching, and search."""
 
 import json
+import logging
 import os
-import sys
 import time
 import urllib.parse
 import urllib.request
 import urllib.error
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 from src.config import DATA_DIR, CACHE_MAX_AGE, SIMILARITY_THRESHOLD
 from src.embeddings import get_embed_model
@@ -43,7 +45,7 @@ def fetch_channel_videos(channel_id, api_key, max_per_page=50, known_ids=None):
             resp = urllib.request.urlopen(url)
             data = json.loads(resp.read())
         except urllib.error.HTTPError as e:
-            print(f"  playlistItems error {e.code} for {channel_id}: {e.read().decode()}", file=sys.stderr)
+            logger.error("playlistItems error %d for %s: %s", e.code, channel_id, e.read().decode())
             break
 
         hit_known = False
@@ -104,9 +106,9 @@ def load_youtube_cache():
             else:
                 embeddings, index = None, None
             total_videos = sum(len(ch["videos"]) for ch in channels.values())
-            print(f"  YouTube cache loaded ({len(channels)} channels, {total_videos} videos, "
-                  f"{int(age/60)}min old, embeddings={'yes' if embeddings is not None else 'no'})",
-                  file=sys.stderr)
+            logger.info("YouTube cache loaded (%d channels, %d videos, %dmin old, embeddings=%s)",
+                        len(channels), total_videos, int(age/60),
+                        "yes" if embeddings is not None else "no")
             return channels, embeddings, index
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         pass
@@ -115,7 +117,7 @@ def load_youtube_cache():
 
 def build_youtube_cache(yt_creators, api_key, existing_channels=None):
     """Fetch all YouTube channels' videos, compute embeddings, and cache."""
-    print(f"  Building YouTube cache for {len(yt_creators)} channels...", file=sys.stderr)
+    logger.info("Building YouTube cache for %d channels...", len(yt_creators))
     channels = {}
 
     for creator in yt_creators:
@@ -130,7 +132,7 @@ def build_youtube_cache(yt_creators, api_key, existing_channels=None):
             existing_videos = existing_channels[channel_url].get("videos", [])
             known_ids = {v["video_id"] for v in existing_videos}
 
-        print(f"    Fetching: {name}...", file=sys.stderr)
+        logger.info("Fetching: %s...", name)
         new_videos = fetch_channel_videos(channel_id, api_key, known_ids=known_ids)
 
         # Merge: new videos first (newest), then existing videos not already in new
@@ -144,8 +146,8 @@ def build_youtube_cache(yt_creators, api_key, existing_channels=None):
             "channel_id": channel_id,
             "videos": all_videos,
         }
-        print(f"      {len(new_videos)} new + {len(all_videos) - len(new_videos)} existing "
-              f"= {len(all_videos)} total", file=sys.stderr)
+        logger.info("%d new + %d existing = %d total",
+                    len(new_videos), len(all_videos) - len(new_videos), len(all_videos))
 
     # Save channel metadata as JSON
     cache = {"timestamp": time.time(), "channels": channels}
@@ -153,7 +155,7 @@ def build_youtube_cache(yt_creators, api_key, existing_channels=None):
         with open(_youtube_cache_path(), "w") as f:
             json.dump(cache, f)
     except Exception as e:
-        print(f"  YouTube cache save error: {e}", file=sys.stderr)
+        logger.error("YouTube cache save error: %s", e)
 
     # Build embeddings for all videos
     model = get_embed_model()
@@ -169,19 +171,18 @@ def build_youtube_cache(yt_creators, api_key, existing_channels=None):
 
     total_videos = len(texts)
     if texts:
-        print(f"  Computing embeddings for {total_videos} videos...", file=sys.stderr)
+        logger.info("Computing embeddings for %d videos...", total_videos)
         embeddings = model.encode(texts, show_progress_bar=True, batch_size=128)
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         norms[norms == 0] = 1
         embeddings = embeddings / norms
         np.savez(_youtube_embeddings_path(), embeddings=embeddings,
                  index=np.array(index, dtype=object))
-        print(f"  YouTube embeddings saved: {embeddings.shape}", file=sys.stderr)
+        logger.info("YouTube embeddings saved: %s", embeddings.shape)
     else:
         embeddings = None
 
-    print(f"  YouTube cache complete: {len(channels)} channels, {total_videos} videos",
-          file=sys.stderr)
+    logger.info("YouTube cache complete: %d channels, %d videos", len(channels), total_videos)
     return channels, embeddings, index
 
 
@@ -206,7 +207,7 @@ def get_youtube_cache(yt_creators, api_key, force_refresh=False):
 def search_youtube_cache(topic, channels, embeddings, index, max_total=7):
     """Search cached YouTube videos using semantic similarity, with keyword fallback."""
     if embeddings is None or index is None:
-        print("  No YouTube embeddings available, skipping YouTube search.", file=sys.stderr)
+        logger.warning("No YouTube embeddings available, skipping YouTube search.")
         return []
 
     model = get_embed_model()
@@ -243,8 +244,7 @@ def search_youtube_cache(topic, channels, embeddings, index, max_total=7):
 
     # Fallback: keyword search
     if not all_results:
-        print(f"  YouTube semantic search found nothing, falling back to keywords: {topic}",
-              file=sys.stderr)
+        logger.warning("YouTube semantic search found nothing, falling back to keywords: %s", topic)
         kw = topic.lower()
         keywords = {kw}
         if kw.endswith("s"):

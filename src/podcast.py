@@ -1,13 +1,15 @@
 """Podcast RSS fetching, caching, and search."""
 
 import json
+import logging
 import os
-import sys
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 from src.config import DATA_DIR, CACHE_MAX_AGE, SIMILARITY_THRESHOLD
 from src.embeddings import get_embed_model
@@ -40,13 +42,13 @@ def fetch_rss_episodes(feed_url, timeout=10):
         resp = urllib.request.urlopen(req, timeout=timeout)
         xml_bytes = resp.read()
     except Exception as e:
-        print(f"  RSS fetch error for {feed_url}: {e}", file=sys.stderr)
+        logger.error("RSS fetch error for %s: %s", feed_url, e)
         return []
 
     try:
         root = ET.fromstring(xml_bytes)
     except ET.ParseError as e:
-        print(f"  RSS parse error for {feed_url}: {e}", file=sys.stderr)
+        logger.error("RSS parse error for %s: %s", feed_url, e)
         return []
 
     episodes = []
@@ -131,7 +133,8 @@ def load_podcast_cache():
                 index = data["index"].tolist()  # list of (feed_url, episode_idx)
             else:
                 embeddings, index = None, None
-            print(f"  Podcast cache loaded ({len(feeds)} feeds, {int(age/60)}min old, embeddings={'yes' if embeddings is not None else 'no'})", file=sys.stderr)
+            logger.info("Podcast cache loaded (%d feeds, %dmin old, embeddings=%s)",
+                        len(feeds), int(age/60), "yes" if embeddings is not None else "no")
             return feeds, embeddings, index
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         pass
@@ -140,12 +143,12 @@ def load_podcast_cache():
 
 def build_podcast_cache(podcasts):
     """Fetch all podcast RSS feeds, compute embeddings, and cache everything."""
-    print(f"  Building podcast cache for {len(podcasts)} feeds...", file=sys.stderr)
+    logger.info("Building podcast cache for %d feeds...", len(podcasts))
     feeds = {}
     for podcast in podcasts:
         name = podcast["name"]
         url = podcast["url"]
-        print(f"    Fetching: {name}...", file=sys.stderr)
+        logger.info("Fetching: %s...", name)
         episodes = fetch_rss_episodes(url)
         feeds[url] = {
             "name": name,
@@ -159,7 +162,7 @@ def build_podcast_cache(podcasts):
         with open(_cache_path(), "w") as f:
             json.dump(cache, f)
     except Exception as e:
-        print(f"  Cache save error: {e}", file=sys.stderr)
+        logger.error("Cache save error: %s", e)
 
     # Build embeddings for all episodes
     model = get_embed_model()
@@ -176,18 +179,18 @@ def build_podcast_cache(podcasts):
 
     total_eps = len(texts)
     if texts:
-        print(f"  Computing embeddings for {total_eps} episodes...", file=sys.stderr)
+        logger.info("Computing embeddings for %d episodes...", total_eps)
         embeddings = model.encode(texts, show_progress_bar=True, batch_size=128)
         # Normalize for cosine similarity (dot product on normalized vectors)
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         norms[norms == 0] = 1
         embeddings = embeddings / norms
         np.savez(_embeddings_path(), embeddings=embeddings, index=np.array(index, dtype=object))
-        print(f"  Embeddings saved: {embeddings.shape}", file=sys.stderr)
+        logger.info("Embeddings saved: %s", embeddings.shape)
     else:
         embeddings = None
 
-    print(f"  Cache complete: {len(feeds)} feeds, {total_eps} episodes", file=sys.stderr)
+    logger.info("Cache complete: %d feeds, %d episodes", len(feeds), total_eps)
     return feeds, embeddings, index
 
 
@@ -208,7 +211,7 @@ def search_all_podcasts(topic, podcasts, feeds=None, embeddings=None, index=None
         feeds, embeddings, index = get_podcast_cache(podcasts)
 
     if embeddings is None or index is None:
-        print("  No embeddings available, skipping podcast search.", file=sys.stderr)
+        logger.warning("No embeddings available, skipping podcast search.")
         return []
 
     # Embed the query
@@ -253,7 +256,7 @@ def search_all_podcasts(topic, podcasts, feeds=None, embeddings=None, index=None
 
     # Fallback: keyword search if semantic search found nothing
     if not all_results:
-        print(f"  Semantic search found nothing, falling back to keyword search for: {topic}", file=sys.stderr)
+        logger.warning("Semantic search found nothing, falling back to keyword search for: %s", topic)
         kw = topic.lower()
         for feed_url, feed_data in feeds.items():
             for ep in feed_data["episodes"]:
