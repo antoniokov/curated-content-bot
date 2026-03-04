@@ -10,6 +10,7 @@ DATA_DIR = os.path.join(PROJECT_DIR, "data")
 
 CACHE_MAX_AGE = 24 * 60 * 60  # 24 hours in seconds
 SIMILARITY_THRESHOLD = 0.45    # minimum cosine similarity to consider relevant
+MAX_RESULTS = 10               # top N results across all sources
 LOG_DIR = os.path.join(PROJECT_DIR, "logs")
 LOG_FILE = os.path.join(LOG_DIR, "bot.log")
 

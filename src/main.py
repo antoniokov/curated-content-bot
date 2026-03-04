@@ -7,7 +7,7 @@ import os
 import sys
 import time
 
-from src.config import load_env, load_creators, setup_logging
+from src.config import load_env, load_creators, setup_logging, MAX_RESULTS
 from src.utils import truncate
 from src.youtube import get_youtube_cache, build_youtube_cache, search_youtube_cache
 from src.podcast import get_podcast_cache, build_podcast_cache, search_all_podcasts
@@ -35,6 +35,54 @@ def _max_src_mtime():
 
 
 _start_mtime = _max_src_mtime()
+
+
+def merge_search_results(yt_results, pod_results, max_results=MAX_RESULTS):
+    """Merge YouTube and podcast results, rank by similarity, return top N grouped by creator."""
+    # Flatten all individual items with metadata
+    flat = []
+    for group in yt_results:
+        for vid in group["videos"]:
+            flat.append({
+                "source": "youtube",
+                "creator": group["creator"],
+                "similarity": vid.get("_similarity", 0.0),
+                "item": vid,
+            })
+    for group in pod_results:
+        for ep in group["episodes"]:
+            flat.append({
+                "source": "podcast",
+                "creator": group["creator"],
+                "similarity": ep.get("_similarity", 0.0),
+                "item": ep,
+                "apple_podcasts_id": group.get("apple_podcasts_id", ""),
+            })
+
+    # Sort by similarity descending, take top N
+    flat.sort(key=lambda x: x["similarity"], reverse=True)
+    flat = flat[:max_results]
+
+    # Re-group by (source, creator), preserving order of first appearance
+    groups = []
+    seen = {}
+    for entry in flat:
+        key = (entry["source"], entry["creator"])
+        if key not in seen:
+            if entry["source"] == "youtube":
+                group = {"source": "youtube", "creator": entry["creator"], "videos": []}
+            else:
+                group = {"source": "podcast", "creator": entry["creator"],
+                         "episodes": [], "apple_podcasts_id": entry.get("apple_podcasts_id", "")}
+            seen[key] = len(groups)
+            groups.append(group)
+        group = groups[seen[key]]
+        if entry["source"] == "youtube":
+            group["videos"].append(entry["item"])
+        else:
+            group["episodes"].append(entry["item"])
+
+    return groups
 
 
 def _check_reload():
@@ -128,26 +176,29 @@ def main():
                 parts.append(f"{len(podcasts)} podcasts")
             send_message(tg_token, chat_id, f"🔍 Searching {' + '.join(parts)} for \"{text}\"...", disable_preview=True)
 
-            total_results = 0
-
-            # YouTube search (from cache)
+            # Search all sources and merge results
+            yt_results = []
             if yt_creators:
                 yt_channels, yt_embeddings, yt_index = get_youtube_cache(yt_creators, yt_key)
                 yt_results = search_youtube_cache(text, yt_channels, yt_embeddings, yt_index)
-                for group in yt_results:
-                    send_message(tg_token, chat_id, f"📺 {group['creator']}", disable_preview=True)
-                    for video in group["videos"]:
-                        send_video_url(tg_token, chat_id, video["url"])
-                total_results += sum(len(g["videos"]) for g in yt_results)
 
-            # Podcast search (semantic)
+            pod_results = []
             if podcasts:
                 pod_feeds, pod_embeddings, pod_index = get_podcast_cache(podcasts)
                 pod_results = search_all_podcasts(text, podcasts,
                     feeds=pod_feeds, embeddings=pod_embeddings, index=pod_index)
-                for group in pod_results:
-                    creator = group["creator"]
-                    send_message(tg_token, chat_id, f"🎙 {creator}", disable_preview=True)
+
+            results = merge_search_results(yt_results, pod_results)
+
+            total_results = 0
+            for group in results:
+                if group["source"] == "youtube":
+                    send_message(tg_token, chat_id, f"📺 {group['creator']}", disable_preview=True)
+                    for video in group["videos"]:
+                        send_video_url(tg_token, chat_id, video["url"])
+                    total_results += len(group["videos"])
+                else:
+                    send_message(tg_token, chat_id, f"🎙 {group['creator']}", disable_preview=True)
                     for ep in group["episodes"]:
                         short_desc = truncate(ep.get("description", ""), 200)
                         caption = f"<code>{ep['title']}</code>"
@@ -158,7 +209,7 @@ def main():
                             send_photo(tg_token, chat_id, thumb, caption=caption, parse_mode="HTML")
                         else:
                             send_message(tg_token, chat_id, caption, parse_mode="HTML", disable_preview=True)
-                total_results += sum(len(g["episodes"]) for g in pod_results)
+                    total_results += len(group["episodes"])
 
             if total_results == 0:
                 send_message(tg_token, chat_id, "No relevant content found. Try a broader topic?")

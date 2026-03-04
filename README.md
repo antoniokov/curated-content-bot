@@ -13,7 +13,7 @@ Telegram bot (`@curated_content_bot`). Both YouTube and podcasts follow the same
    - **Podcasts**: all episodes from each podcast's RSS feed
 2. Titles and descriptions are embedded using the `all-MiniLM-L6-v2` model (sentence-transformers)
 3. On each search, the topic is embedded and compared against all cached embeddings using cosine similarity, with keyword fallback
-4. Results are sent back grouped by creator, capped at 7 per source
+4. Results from all sources are ranked by similarity and the top 10 are sent back, grouped by creator
 
 YouTube links auto-unfurl into rich previews. Podcast episodes show as photo cards with the episode title (tap-to-copy) and a short description.
 
@@ -22,7 +22,7 @@ YouTube links auto-unfurl into rich previews. Podcast episodes show as photo car
 ```
 python3 -m venv .venv
 source .venv/bin/activate
-pip install sentence-transformers numpy pytest
+pip install -r requirements.txt
 ```
 
 Create a `.env` file with your API keys:
@@ -66,7 +66,7 @@ src/
   telegram.py           — Telegram Bot API helpers
   main.py               — main loop, command handling, auto-reload
 tests/
-  test_bot.py           — 10 pytest tests covering the core pipeline
+  test_bot.py           — 12 pytest tests covering the core pipeline
 data/
   creators.csv          — 96 YouTube channels + 59 podcasts
   (auto-generated cache and embedding files)
@@ -76,5 +76,6 @@ data/
 ## Testing
 
 ```
-python -m pytest tests/test_bot.py -v
+source .venv/bin/activate
+python3 -m pytest tests/test_bot.py -v
 ```

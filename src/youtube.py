@@ -204,8 +204,11 @@ def get_youtube_cache(yt_creators, api_key, force_refresh=False):
 
 # --- Search ---
 
-def search_youtube_cache(topic, channels, embeddings, index, max_total=7):
-    """Search cached YouTube videos using semantic similarity, with keyword fallback."""
+def search_youtube_cache(topic, channels, embeddings, index, max_total=None):
+    """Search cached YouTube videos using semantic similarity, with keyword fallback.
+
+    When max_total is None, returns all results above the similarity threshold.
+    """
     if embeddings is None or index is None:
         logger.warning("No YouTube embeddings available, skipping YouTube search.")
         return []
@@ -220,7 +223,7 @@ def search_youtube_cache(topic, channels, embeddings, index, max_total=7):
     results_by_channel = {}
     total = 0
     for idx in ranked_indices:
-        if total >= max_total:
+        if max_total is not None and total >= max_total:
             break
         sim = float(similarities[idx])
         if sim < SIMILARITY_THRESHOLD:
@@ -265,9 +268,9 @@ def search_youtube_cache(topic, channels, embeddings, index, max_total=7):
                         results_by_channel[channel_url]["videos"].append(
                             {**vid, "_similarity": 0.0})
                         total += 1
-                if total >= max_total:
+                if max_total is not None and total >= max_total:
                     break
-            if total >= max_total:
+            if max_total is not None and total >= max_total:
                 break
         all_results = list(results_by_channel.values())
 

@@ -10,10 +10,11 @@ import numpy as np
 import pytest
 from sentence_transformers import SentenceTransformer
 
-from src.config import DATA_DIR, load_creators
+from src.config import DATA_DIR, load_creators, MAX_RESULTS
 from src.utils import strip_html, truncate
 from src.youtube import fetch_channel_videos, search_youtube_cache
 from src.podcast import fetch_rss_episodes, search_all_podcasts
+from src.main import merge_search_results
 
 # --- Shared fixtures ---
 
@@ -339,3 +340,71 @@ def test_search_all_podcasts_keyword_fallback():
 
     assert len(results) > 0
     assert results[0]["episodes"][0]["title"] == "The Zarquon Incident"
+
+
+def test_merge_search_results_ranks_across_sources():
+    """Merge ranks all items by similarity and respects max_results limit."""
+    yt_results = [
+        {"creator": "AI Channel", "videos": [
+            {"title": "Video A", "_similarity": 0.9, "url": "https://yt.com/a"},
+            {"title": "Video B", "_similarity": 0.6, "url": "https://yt.com/b"},
+        ]},
+        {"creator": "ML Channel", "videos": [
+            {"title": "Video C", "_similarity": 0.5, "url": "https://yt.com/c"},
+        ]},
+    ]
+    pod_results = [
+        {"creator": "AI Podcast", "apple_podcasts_id": "123", "episodes": [
+            {"title": "Episode X", "_similarity": 0.85, "link": "https://pod.com/x"},
+            {"title": "Episode Y", "_similarity": 0.55, "link": "https://pod.com/y"},
+        ]},
+    ]
+
+    # With max_results=3, should get: Video A (0.9), Episode X (0.85), Video B (0.6)
+    results = merge_search_results(yt_results, pod_results, max_results=3)
+
+    total_items = sum(
+        len(g.get("videos", [])) + len(g.get("episodes", []))
+        for g in results
+    )
+    assert total_items == 3
+
+    # Video A and Episode X should be in results (top 2 by similarity)
+    all_titles = []
+    for g in results:
+        all_titles.extend(v["title"] for v in g.get("videos", []))
+        all_titles.extend(e["title"] for e in g.get("episodes", []))
+    assert "Video A" in all_titles
+    assert "Episode X" in all_titles
+    assert "Video B" in all_titles
+    # Video C (0.5) and Episode Y (0.55) should be cut
+    assert "Video C" not in all_titles
+    assert "Episode Y" not in all_titles
+
+
+def test_merge_search_results_preserves_group_structure():
+    """Merged results are grouped by source+creator with correct fields."""
+    yt_results = [
+        {"creator": "Chan", "videos": [
+            {"title": "V1", "_similarity": 0.8, "url": "https://yt.com/1", "video_id": "v1",
+             "description": "desc", "thumbnail": "https://img/1.jpg"},
+        ]},
+    ]
+    pod_results = [
+        {"creator": "Pod", "apple_podcasts_id": "99", "episodes": [
+            {"title": "E1", "_similarity": 0.7, "link": "https://pod.com/1",
+             "description": "desc", "thumbnail": "https://img/e1.jpg"},
+        ]},
+    ]
+
+    results = merge_search_results(yt_results, pod_results, max_results=10)
+    assert len(results) == 2
+
+    yt_group = next(g for g in results if g["source"] == "youtube")
+    assert yt_group["creator"] == "Chan"
+    assert len(yt_group["videos"]) == 1
+
+    pod_group = next(g for g in results if g["source"] == "podcast")
+    assert pod_group["creator"] == "Pod"
+    assert pod_group["apple_podcasts_id"] == "99"
+    assert len(pod_group["episodes"]) == 1

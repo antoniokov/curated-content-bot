@@ -205,8 +205,11 @@ def get_podcast_cache(podcasts, force_refresh=False):
 
 # --- Search ---
 
-def search_all_podcasts(topic, podcasts, feeds=None, embeddings=None, index=None, max_total=7):
-    """Search all podcasts using semantic similarity and return grouped results."""
+def search_all_podcasts(topic, podcasts, feeds=None, embeddings=None, index=None, max_total=None):
+    """Search all podcasts using semantic similarity and return grouped results.
+
+    When max_total is None, returns all results above the similarity threshold.
+    """
     if feeds is None:
         feeds, embeddings, index = get_podcast_cache(podcasts)
 
@@ -229,7 +232,7 @@ def search_all_podcasts(topic, podcasts, feeds=None, embeddings=None, index=None
     results_by_feed = {}  # feed_url -> list of (similarity, episode)
     total = 0
     for idx in ranked_indices:
-        if total >= max_total:
+        if max_total is not None and total >= max_total:
             break
         sim = float(similarities[idx])
         if sim < SIMILARITY_THRESHOLD:
@@ -272,9 +275,9 @@ def search_all_podcasts(topic, podcasts, feeds=None, embeddings=None, index=None
                     if len(results_by_feed[feed_url]["episodes"]) < 3:
                         results_by_feed[feed_url]["episodes"].append({**ep, "_similarity": 0.0})
                         total += 1
-                if total >= max_total:
+                if max_total is not None and total >= max_total:
                     break
-            if total >= max_total:
+            if max_total is not None and total >= max_total:
                 break
         all_results = list(results_by_feed.values())
 
