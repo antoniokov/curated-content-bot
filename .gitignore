@@ -3,6 +3,6 @@
 __pycache__/
 .DS_Store
 .env
-.podcast_cache.json
-*.csv
-*.npz
+.pytest_cache/
+data/*
+!data/.gitkeep

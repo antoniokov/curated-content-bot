@@ -1,7 +1,6 @@
 """Tests for the core bot pipeline: load → fetch → cache → embed → search."""
 
 import csv
-import io
 import json
 import os
 import tempfile
@@ -11,7 +10,10 @@ import numpy as np
 import pytest
 from sentence_transformers import SentenceTransformer
 
-import bot
+from src.config import DATA_DIR, load_creators
+from src.utils import strip_html, truncate
+from src.youtube import fetch_channel_videos, search_youtube_cache
+from src.podcast import fetch_rss_episodes, search_all_podcasts
 
 # --- Shared fixtures ---
 
@@ -27,7 +29,7 @@ def get_model():
 
 
 def encode_and_normalize(texts):
-    """Encode texts and L2-normalize (same as bot.py does)."""
+    """Encode texts and L2-normalize (same as the bot does)."""
     model = get_model()
     emb = model.encode(texts)
     norms = np.linalg.norm(emb, axis=1, keepdims=True)
@@ -88,7 +90,7 @@ RSS_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
 
 def test_load_creators():
     """CSV parsing splits YouTube/podcast correctly."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False, dir=bot.SCRIPT_DIR) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False, dir=DATA_DIR) as f:
         writer = csv.writer(f)
         writer.writerow(["type", "name", "url", "channel_id", "apple_podcasts_id"])
         writer.writerow(["YouTube channel", "Chan A", "https://yt.com/@a", "UCxxxxA", ""])
@@ -96,7 +98,7 @@ def test_load_creators():
         writer.writerow(["Podcast", "Pod X", "https://feed.example.com/x", "", "12345"])
         tmp_name = os.path.basename(f.name)
     try:
-        yt, pods = bot.load_creators(tmp_name)
+        yt, pods = load_creators(tmp_name)
         assert len(yt) == 2
         assert len(pods) == 1
         assert yt[0]["name"] == "Chan A"
@@ -104,7 +106,7 @@ def test_load_creators():
         assert pods[0]["name"] == "Pod X"
         assert pods[0]["url"] == "https://feed.example.com/x"
     finally:
-        os.unlink(os.path.join(bot.SCRIPT_DIR, tmp_name))
+        os.unlink(os.path.join(DATA_DIR, tmp_name))
 
 
 def test_fetch_channel_videos():
@@ -113,7 +115,7 @@ def test_fetch_channel_videos():
     mock_resp.read.return_value = json.dumps(YOUTUBE_API_RESPONSE).encode()
 
     with patch("urllib.request.urlopen", return_value=mock_resp):
-        videos = bot.fetch_channel_videos("UCxxxxA", "fake_key")
+        videos = fetch_channel_videos("UCxxxxA", "fake_key")
 
     assert len(videos) == 2
     v = videos[0]
@@ -132,7 +134,7 @@ def test_fetch_channel_videos_incremental():
     mock_resp.read.return_value = json.dumps(YOUTUBE_API_RESPONSE).encode()
 
     with patch("urllib.request.urlopen", return_value=mock_resp):
-        videos = bot.fetch_channel_videos("UCxxxxA", "fake_key", known_ids={"vid_def"})
+        videos = fetch_channel_videos("UCxxxxA", "fake_key", known_ids={"vid_def"})
 
     # Should stop at vid_def, only vid_abc returned
     assert len(videos) == 1
@@ -147,7 +149,7 @@ def test_fetch_rss_episodes():
     mock_resp.__exit__ = MagicMock(return_value=False)
 
     with patch("urllib.request.urlopen", return_value=mock_resp):
-        episodes = bot.fetch_rss_episodes("https://feed.example.com/test")
+        episodes = fetch_rss_episodes("https://feed.example.com/test")
 
     assert len(episodes) == 2
     ep = episodes[0]
@@ -166,18 +168,18 @@ def test_fetch_rss_episodes():
 
 def test_strip_html():
     """HTML tags stripped, entities decoded."""
-    assert bot._strip_html("<p>Hello <b>world</b></p>") == "Hello world"
-    assert bot._strip_html("&amp; &lt;test&gt;") == "& <test>"
-    assert bot._strip_html("no tags here") == "no tags here"
+    assert strip_html("<p>Hello <b>world</b></p>") == "Hello world"
+    assert strip_html("&amp; &lt;test&gt;") == "& <test>"
+    assert strip_html("no tags here") == "no tags here"
 
 
 def test_truncate():
     """Truncation at word boundary."""
     short = "hello world"
-    assert bot._truncate(short, 200) == short
+    assert truncate(short, 200) == short
 
     long_text = "word " * 100  # 500 chars
-    result = bot._truncate(long_text, 50)
+    result = truncate(long_text, 50)
     assert len(result) <= 51  # 50 + ellipsis char
     assert result.endswith("…")
     assert "  " not in result  # clean word boundary
@@ -201,7 +203,7 @@ def test_search_youtube_cache_semantic():
         "https://yt.com/@ml": {"name": "ML Channel", "channel_id": "UC2", "videos": [videos[2]]},
     }
 
-    # Build embeddings the same way bot.py does
+    # Build embeddings the same way the bot does
     texts = []
     index = []
     for ch_url, ch_data in channels.items():
@@ -214,8 +216,8 @@ def test_search_youtube_cache_semantic():
 
     embeddings = encode_and_normalize(texts)
 
-    with patch.object(bot, "_get_embed_model", return_value=get_model()):
-        results = bot.search_youtube_cache("deep learning neural networks", channels, embeddings, index, max_total=3)
+    with patch("src.youtube.get_embed_model", return_value=get_model()):
+        results = search_youtube_cache("deep learning neural networks", channels, embeddings, index, max_total=3)
 
     assert len(results) > 0
     # Should find ML-related videos, not cooking
@@ -248,8 +250,8 @@ def test_search_youtube_cache_keyword_fallback():
     index = [("https://yt.com/@travel", 0)]
     embeddings = encode_and_normalize(texts)
 
-    with patch.object(bot, "_get_embed_model", return_value=get_model()):
-        results = bot.search_youtube_cache("Zarquon", channels, embeddings, index)
+    with patch("src.youtube.get_embed_model", return_value=get_model()):
+        results = search_youtube_cache("Zarquon", channels, embeddings, index)
 
     # Semantic search won't match the threshold, but keyword search should find "Zarquon"
     assert len(results) > 0
@@ -292,8 +294,8 @@ def test_search_all_podcasts_semantic():
     embeddings = encode_and_normalize(texts)
     podcasts = []  # not used when feeds are passed directly
 
-    with patch.object(bot, "_get_embed_model", return_value=get_model()):
-        results = bot.search_all_podcasts(
+    with patch("src.podcast.get_embed_model", return_value=get_model()):
+        results = search_all_podcasts(
             "neural networks and deep learning", podcasts,
             feeds=feeds, embeddings=embeddings, index=index, max_total=3)
 
@@ -330,8 +332,8 @@ def test_search_all_podcasts_keyword_fallback():
     embeddings = encode_and_normalize(texts)
     podcasts = []
 
-    with patch.object(bot, "_get_embed_model", return_value=get_model()):
-        results = bot.search_all_podcasts(
+    with patch("src.podcast.get_embed_model", return_value=get_model()):
+        results = search_all_podcasts(
             "zarquon", podcasts,
             feeds=feeds, embeddings=embeddings, index=index)
 
