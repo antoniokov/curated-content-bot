@@ -64,5 +64,6 @@ YouTube uses `playlistItems.list` (1 unit per 50 videos) instead of `search.list
 
 [x] Optimize YouTube quota usage via caching
 [] Add a command to check the current daily YouTube quota available
+[x] Add tests to ensure future changes don't break the bot
 [] Store local logs to help with future troubleshooting
 [] Allow to add a creator from Telegram bot (does it need AI to enrich things?)

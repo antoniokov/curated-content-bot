@@ -176,10 +176,9 @@ def fetch_rss_episodes(feed_url, timeout=10):
         return []
 
     # Channel-level fallback image
-    channel_image = (
-        channel.find("itunes:image", NS)
-        or channel.find("image/url")
-    )
+    channel_image = channel.find("itunes:image", NS)
+    if channel_image is None:
+        channel_image = channel.find("image/url")
     fallback_thumb = ""
     if channel_image is not None:
         fallback_thumb = channel_image.get("href", "") or channel_image.text or ""
