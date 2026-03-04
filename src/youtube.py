@@ -62,12 +62,15 @@ def fetch_channel_videos(channel_id, api_key, max_per_page=50, known_ids=None):
             thumb = (thumbs.get("high") or thumbs.get("medium")
                      or thumbs.get("default") or {}).get("url", "")
 
+            published_at = snippet.get("publishedAt", "")[:10]  # "2024-01-15T..." → "2024-01-15"
+
             videos.append({
                 "title": snippet.get("title", ""),
                 "video_id": video_id,
                 "url": f"https://www.youtube.com/watch?v={video_id}",
                 "description": snippet.get("description", ""),
                 "thumbnail": thumb,
+                "published_at": published_at,
             })
 
         if hit_known:

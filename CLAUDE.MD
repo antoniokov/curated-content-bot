@@ -1,3 +1,6 @@
+### Environment caveats
+To run or test the bot, use the same commands you recommend in README.md. Avoid using full paths to python or similar commands.
+
 ### End-of-session checklist
 
 When I say "we're done", "ship it", "finish up", or similar — follow this sequence:

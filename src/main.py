@@ -8,7 +8,7 @@ import sys
 import time
 
 from src.config import load_env, load_creators, setup_logging, MAX_RESULTS
-from src.utils import truncate
+from src.utils import truncate, format_date
 from src.youtube import get_youtube_cache, build_youtube_cache, search_youtube_cache
 from src.podcast import get_podcast_cache, build_podcast_cache, search_all_podcasts
 from src.telegram import tg_request, send_message, send_video_url, send_photo
@@ -195,13 +195,19 @@ def main():
                 if group["source"] == "youtube":
                     send_message(tg_token, chat_id, f"📺 {group['creator']}", disable_preview=True)
                     for video in group["videos"]:
+                        date_str = format_date(video.get("published_at", ""))
+                        if date_str:
+                            send_message(tg_token, chat_id, date_str, disable_preview=True)
                         send_video_url(tg_token, chat_id, video["url"])
                     total_results += len(group["videos"])
                 else:
                     send_message(tg_token, chat_id, f"🎙 {group['creator']}", disable_preview=True)
                     for ep in group["episodes"]:
                         short_desc = truncate(ep.get("description", ""), 200)
+                        date_str = format_date(ep.get("published_at", ""))
                         caption = f"<code>{ep['title']}</code>"
+                        if date_str:
+                            caption += f"\n{date_str}"
                         if short_desc:
                             caption += f"\n\n{short_desc}"
                         thumb = ep.get("thumbnail", "")

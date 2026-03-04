@@ -11,7 +11,7 @@ import pytest
 from sentence_transformers import SentenceTransformer
 
 from src.config import DATA_DIR, load_creators, MAX_RESULTS
-from src.utils import strip_html, truncate
+from src.utils import strip_html, truncate, format_date
 from src.youtube import fetch_channel_videos, search_youtube_cache
 from src.podcast import fetch_rss_episodes, search_all_podcasts
 from src.main import merge_search_results
@@ -45,6 +45,7 @@ YOUTUBE_API_RESPONSE = {
                 "title": "How Neural Networks Learn",
                 "resourceId": {"videoId": "vid_abc"},
                 "description": "A deep dive into backpropagation and gradient descent.",
+                "publishedAt": "2024-03-15T10:00:00Z",
                 "thumbnails": {
                     "high": {"url": "https://img.youtube.com/vi/vid_abc/hq.jpg"}
                 },
@@ -55,6 +56,7 @@ YOUTUBE_API_RESPONSE = {
                 "title": "Cooking Italian Pasta",
                 "resourceId": {"videoId": "vid_def"},
                 "description": "Traditional recipes from Tuscany.",
+                "publishedAt": "2024-02-20T08:30:00Z",
                 "thumbnails": {
                     "medium": {"url": "https://img.youtube.com/vi/vid_def/mq.jpg"}
                 },
@@ -74,12 +76,14 @@ RSS_XML = b"""<?xml version="1.0" encoding="UTF-8"?>
     <item>
       <title>Machine Learning Fundamentals</title>
       <description>&lt;p&gt;An intro to &lt;b&gt;ML&lt;/b&gt; &amp; deep learning.&lt;/p&gt;</description>
+      <pubDate>Fri, 15 Mar 2024 10:00:00 +0000</pubDate>
       <link>https://example.com/ep/ml-fundamentals</link>
       <itunes:image href="https://example.com/ep1.jpg"/>
     </item>
     <item>
       <title>Best Coffee Brewing Methods</title>
       <description>Pour-over vs French press vs espresso.</description>
+      <pubDate>Wed, 20 Feb 2024 08:30:00 +0000</pubDate>
       <link>https://example.com/ep/coffee</link>
     </item>
   </channel>
@@ -125,8 +129,10 @@ def test_fetch_channel_videos():
     assert v["url"] == "https://www.youtube.com/watch?v=vid_abc"
     assert "backpropagation" in v["description"]
     assert v["thumbnail"] == "https://img.youtube.com/vi/vid_abc/hq.jpg"
+    assert v["published_at"] == "2024-03-15"
     # Second video falls back to medium thumbnail
     assert videos[1]["thumbnail"] == "https://img.youtube.com/vi/vid_def/mq.jpg"
+    assert videos[1]["published_at"] == "2024-02-20"
 
 
 def test_fetch_channel_videos_incremental():
@@ -157,6 +163,7 @@ def test_fetch_rss_episodes():
     assert ep["title"] == "Machine Learning Fundamentals"
     assert ep["link"] == "https://example.com/ep/ml-fundamentals"
     assert ep["thumbnail"] == "https://example.com/ep1.jpg"
+    assert ep["published_at"] == "2024-03-15"
     # HTML stripped and entities decoded
     assert "<p>" not in ep["description"]
     assert "<b>" not in ep["description"]
@@ -165,6 +172,7 @@ def test_fetch_rss_episodes():
     assert "&" in ep["description"]
     # Second episode falls back to channel-level itunes:image
     assert episodes[1]["thumbnail"] == "https://example.com/pod.jpg"
+    assert episodes[1]["published_at"] == "2024-02-20"
 
 
 def test_strip_html():
@@ -172,6 +180,15 @@ def test_strip_html():
     assert strip_html("<p>Hello <b>world</b></p>") == "Hello world"
     assert strip_html("&amp; &lt;test&gt;") == "& <test>"
     assert strip_html("no tags here") == "no tags here"
+
+
+def test_format_date():
+    """Date string formatted as 'Jan 15, 2024'."""
+    assert format_date("2024-03-15") == "Mar 15, 2024"
+    assert format_date("2024-01-01") == "Jan 1, 2024"
+    assert format_date("") == ""
+    assert format_date(None) == ""
+    assert format_date("not-a-date") == ""
 
 
 def test_truncate():

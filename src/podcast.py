@@ -6,6 +6,7 @@ import os
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
 
 import numpy as np
 
@@ -96,12 +97,22 @@ def fetch_rss_episodes(feed_url, timeout=10):
         else:
             best_link = audio_url
 
+        # Parse pubDate (RFC 822) → "YYYY-MM-DD"
+        pub_date_raw = item.findtext("pubDate", "").strip()
+        published_at = ""
+        if pub_date_raw:
+            try:
+                published_at = parsedate_to_datetime(pub_date_raw).strftime("%Y-%m-%d")
+            except Exception:
+                pass
+
         if title:
             episodes.append({
                 "title": title,
                 "description": description,
                 "link": best_link,
                 "thumbnail": thumb,
+                "published_at": published_at,
             })
     return episodes
 
