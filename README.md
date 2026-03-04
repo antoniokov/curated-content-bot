@@ -49,6 +49,7 @@ python3 bot.py --creators podcasts_all.csv  # all podcasts only (no YouTube quot
 - `/start` — show help
 - `/refresh` — incremental update: fetch only new YouTube videos since last refresh, re-fetch all podcast RSS feeds, recompute embeddings
 - `/rebuild` — full rebuild from scratch: discard all cached data, re-fetch every video and episode, recompute embeddings. Use after code changes or when the cache seems stale.
+- `/updatemodel` — re-download the embedding model from HuggingFace (use after upgrading sentence-transformers or when a newer model version is available)
 
 ## API quota
 

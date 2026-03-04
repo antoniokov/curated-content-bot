@@ -9,6 +9,7 @@ import time
 
 from src.config import load_env, load_creators, setup_logging, MAX_RESULTS
 from src.utils import truncate, format_date, format_duration, format_views
+from src.embeddings import update_embed_model
 from src.youtube import get_youtube_cache, build_youtube_cache, search_youtube_cache
 from src.podcast import get_podcast_cache, build_podcast_cache, search_all_podcasts
 from src.telegram import tg_request, send_message, send_video_url, send_photo
@@ -193,7 +194,15 @@ def main():
                     "Send me a topic and I'll find relevant content from your trusted creators.\n\n"
                     "Commands:\n"
                     "/refresh — fetch new videos and episodes (incremental)\n"
-                    "/rebuild — full rebuild of all caches from scratch")
+                    "/rebuild — full rebuild of all caches from scratch\n"
+                    "/updatemodel — re-download the embedding model from HuggingFace")
+                continue
+
+            # Handle /updatemodel command
+            if text == "/updatemodel":
+                send_message(tg_token, chat_id, "🔄 Updating embedding model...")
+                update_embed_model()
+                send_message(tg_token, chat_id, "✅ Embedding model updated.")
                 continue
 
             # Handle /refresh (incremental) and /rebuild (full) commands

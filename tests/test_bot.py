@@ -27,7 +27,10 @@ def get_model():
     """Load embedding model once across all tests."""
     global MODEL
     if MODEL is None:
-        MODEL = SentenceTransformer("all-MiniLM-L6-v2")
+        try:
+            MODEL = SentenceTransformer("all-MiniLM-L6-v2", local_files_only=True)
+        except OSError:
+            MODEL = SentenceTransformer("all-MiniLM-L6-v2")
     return MODEL
 
 

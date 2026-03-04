@@ -14,7 +14,21 @@ def get_embed_model():
     global _embed_model
     if _embed_model is None:
         from sentence_transformers import SentenceTransformer
-        logger.info("Loading embedding model (first time may download ~80MB)...")
-        _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+        logger.info("Loading embedding model...")
+        try:
+            _embed_model = SentenceTransformer("all-MiniLM-L6-v2", local_files_only=True)
+        except OSError:
+            logger.info("Model not cached locally, downloading (~80MB)...")
+            _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
         logger.info("Model loaded.")
+    return _embed_model
+
+
+def update_embed_model():
+    """Re-download the embedding model from HuggingFace and reload it."""
+    global _embed_model
+    from sentence_transformers import SentenceTransformer
+    logger.info("Updating embedding model from HuggingFace...")
+    _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+    logger.info("Model updated.")
     return _embed_model
