@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Trusted Research Telegram Bot — entry point."""
+"""Curated Content Bot — entry point."""
 
 from src.main import main
 

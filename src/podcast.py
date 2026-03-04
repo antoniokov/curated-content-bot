@@ -38,7 +38,7 @@ def _is_episode_url(url):
 def fetch_rss_episodes(feed_url, timeout=10):
     """Fetch and parse episodes from a podcast RSS feed."""
     try:
-        req = urllib.request.Request(feed_url, headers={"User-Agent": "TrustedResearchBot/1.0"})
+        req = urllib.request.Request(feed_url, headers={"User-Agent": "CuratedContentBot/1.0"})
         resp = urllib.request.urlopen(req, timeout=timeout)
         xml_bytes = resp.read()
     except Exception as e:

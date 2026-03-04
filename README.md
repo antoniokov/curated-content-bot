@@ -1,12 +1,12 @@
-# Trusted Research
+# Curated Content Bot
 
 I regularly struggle to find quality content once I get fascinated with a certain topic: airships, AI agents orchestration, etc. At the same time, I have a list of people and teams that I enjoy reading or listening to, but I'm usually consuming content while it's fresh even if the topic is not especially hot for me at the moment.
 
-**Trusted Research** lets me name a topic in a Telegram chat and get back relevant content from my trusted creators — YouTube videos with auto-unfurled previews, and podcast episodes with thumbnails and descriptions.
+**Curated Content Bot** lets me name a topic in a Telegram chat and get back relevant content from my trusted creators — YouTube videos with auto-unfurled previews, and podcast episodes with thumbnails and descriptions.
 
 ## How it works
 
-Telegram bot (`@TrustedResearchBot`). Both YouTube and podcasts follow the same pattern: **cache locally, search via embeddings**.
+Telegram bot (`@curated_content_bot`). Both YouTube and podcasts follow the same pattern: **cache locally, search via embeddings**.
 
 1. On startup (or `/refresh`), all content is fetched and cached locally:
    - **YouTube**: all videos from each channel's uploads playlist via `playlistItems.list` (incremental — only new videos on subsequent refreshes)
