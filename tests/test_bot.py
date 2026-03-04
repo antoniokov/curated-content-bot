@@ -14,7 +14,7 @@ from src.config import DATA_DIR, load_creators, MAX_RESULTS
 from src.utils import strip_html, truncate, format_date
 from src.youtube import fetch_channel_videos, search_youtube_cache
 from src.podcast import fetch_rss_episodes, search_all_podcasts
-from src.main import merge_search_results
+from src.main import merge_search_results, send_search_results
 
 # --- Shared fixtures ---
 
@@ -425,3 +425,86 @@ def test_merge_search_results_preserves_group_structure():
     assert pod_group["creator"] == "Pod"
     assert pod_group["apple_podcasts_id"] == "99"
     assert len(pod_group["episodes"]) == 1
+
+
+def test_published_dates_flow_from_search_to_telegram():
+    """End-to-end: published dates survive search → merge → display for both sources."""
+    # YouTube channel with published_at (as built by fetch_channel_videos)
+    yt_videos = [
+        {"title": "How Neural Networks Learn", "video_id": "v1",
+         "url": "https://youtube.com/watch?v=v1", "published_at": "2024-03-15",
+         "description": "Backpropagation and gradient descent", "thumbnail": "https://img/v1.jpg"},
+        {"title": "Cooking Italian Pasta", "video_id": "v2",
+         "url": "https://youtube.com/watch?v=v2", "published_at": "2024-02-20",
+         "description": "Traditional recipes from Tuscany", "thumbnail": "https://img/v2.jpg"},
+    ]
+    channels = {
+        "https://yt.com/@ai": {"name": "AI Channel", "channel_id": "UC1", "videos": yt_videos},
+    }
+
+    # Podcast feed with published_at (as built by fetch_rss_episodes)
+    pod_episodes = [
+        {"title": "Machine Learning Fundamentals", "description": "Intro to ML and deep learning",
+         "link": "https://example.com/ep/ml", "thumbnail": "https://img/ml.jpg",
+         "published_at": "2024-01-10"},
+        {"title": "Best Pizza in New York", "description": "Food tour of NYC pizzerias",
+         "link": "https://example.com/ep/pizza", "thumbnail": "https://img/pizza.jpg",
+         "published_at": "2024-01-05"},
+    ]
+    feeds = {
+        "https://feed.example.com/ai": {
+            "name": "AI Podcast", "apple_podcasts_id": "123", "episodes": pod_episodes,
+        },
+    }
+
+    # Build embeddings for YouTube
+    yt_texts = []
+    yt_index = []
+    for ch_url, ch_data in channels.items():
+        for i, vid in enumerate(ch_data["videos"]):
+            yt_texts.append(vid["title"] + ". " + vid["description"])
+            yt_index.append((ch_url, i))
+    yt_embeddings = encode_and_normalize(yt_texts)
+
+    # Build embeddings for podcasts
+    pod_texts = []
+    pod_index = []
+    for feed_url, feed_data in feeds.items():
+        for i, ep in enumerate(feed_data["episodes"]):
+            pod_texts.append(ep["title"] + ". " + ep["description"])
+            pod_index.append((feed_url, i))
+    pod_embeddings = encode_and_normalize(pod_texts)
+
+    model = get_model()
+
+    # Step 1: Search both sources
+    with patch("src.youtube.get_embed_model", return_value=model):
+        yt_results = search_youtube_cache("neural networks", channels, yt_embeddings, yt_index)
+
+    with patch("src.podcast.get_embed_model", return_value=model):
+        pod_results = search_all_podcasts("machine learning", [],
+            feeds=feeds, embeddings=pod_embeddings, index=pod_index)
+
+    # Step 2: Merge
+    results = merge_search_results(yt_results, pod_results)
+
+    # Step 3: Send to Telegram (mocked)
+    with patch("src.main.send_message") as mock_msg, \
+         patch("src.main.send_video_url") as mock_video, \
+         patch("src.main.send_photo") as mock_photo:
+
+        send_search_results("token", 123, results)
+
+        # YouTube: date must be in the video URL message
+        video_calls = mock_video.call_args_list
+        assert len(video_calls) >= 1, "No YouTube video messages sent"
+        video_text = video_calls[0].args[2]
+        assert "Mar 15, 2024" in video_text, (
+            f"YouTube message missing date. Got: {video_text!r}")
+
+        # Podcast: date must be in the photo caption
+        photo_calls = mock_photo.call_args_list
+        assert len(photo_calls) >= 1, "No podcast photo messages sent"
+        caption = photo_calls[0].kwargs["caption"]
+        assert "Jan 10, 2024" in caption, (
+            f"Podcast caption missing date. Got: {caption!r}")

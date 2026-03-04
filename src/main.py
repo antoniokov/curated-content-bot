@@ -37,6 +37,43 @@ def _max_src_mtime():
 _start_mtime = _max_src_mtime()
 
 
+def send_search_results(tg_token, chat_id, results):
+    """Send search results to a Telegram chat. Returns the total number of items sent."""
+    total_results = 0
+    for group in results:
+        if group["source"] == "youtube":
+            send_message(tg_token, chat_id, f"📺 {group['creator']}", disable_preview=True)
+            for video in group["videos"]:
+                date_str = format_date(video.get("published_at", ""))
+                url = video["url"]
+                if date_str:
+                    url = f"{date_str}\n\n{url}"
+                send_video_url(tg_token, chat_id, url)
+            total_results += len(group["videos"])
+        else:
+            send_message(tg_token, chat_id, f"🎙 {group['creator']}", disable_preview=True)
+            for ep in group["episodes"]:
+                short_desc = truncate(ep.get("description", ""), 200)
+                date_str = format_date(ep.get("published_at", ""))
+                caption = f"<code>{ep['title']}</code>"
+                if date_str:
+                    caption += f"\n\n{date_str}"
+                if short_desc:
+                    caption += f"\n\n{short_desc}"
+                thumb = ep.get("thumbnail", "")
+                if thumb:
+                    send_photo(tg_token, chat_id, thumb, caption=caption, parse_mode="HTML")
+                else:
+                    send_message(tg_token, chat_id, caption, parse_mode="HTML", disable_preview=True)
+            total_results += len(group["episodes"])
+
+    if total_results == 0:
+        send_message(tg_token, chat_id, "No relevant content found. Try a broader topic?")
+    else:
+        send_message(tg_token, chat_id, f"✅ Found {total_results} results", disable_preview=True)
+    return total_results
+
+
 def merge_search_results(yt_results, pod_results, max_results=MAX_RESULTS):
     """Merge YouTube and podcast results, rank by similarity, return top N grouped by creator."""
     # Flatten all individual items with metadata
@@ -147,21 +184,27 @@ def main():
             if text == "/start":
                 send_message(tg_token, chat_id,
                     "Send me a topic and I'll find relevant content from your trusted creators.\n\n"
-                    "Commands:\n/refresh — re-fetch YouTube videos and podcast feeds")
+                    "Commands:\n"
+                    "/refresh — fetch new videos and episodes (incremental)\n"
+                    "/rebuild — full rebuild of all caches from scratch")
                 continue
 
-            # Handle /refresh command
-            if text == "/refresh":
+            # Handle /refresh (incremental) and /rebuild (full) commands
+            if text in ("/refresh", "/rebuild"):
+                full = text == "/rebuild"
+                label = "Rebuilding" if full else "Refreshing"
                 if yt_creators:
-                    send_message(tg_token, chat_id, f"🔄 Refreshing {len(yt_creators)} YouTube channels...", disable_preview=True)
-                    yt_channels, yt_embeddings, yt_index = build_youtube_cache(yt_creators, yt_key, existing_channels=yt_channels)
+                    send_message(tg_token, chat_id, f"🔄 {label} {len(yt_creators)} YouTube channels...", disable_preview=True)
+                    yt_channels, yt_embeddings, yt_index = build_youtube_cache(
+                        yt_creators, yt_key,
+                        existing_channels=None if full else yt_channels)
                     total_vids = sum(len(ch["videos"]) for ch in yt_channels.values())
-                    send_message(tg_token, chat_id, f"✅ YouTube cache refreshed: {len(yt_channels)} channels, {total_vids} videos", disable_preview=True)
+                    send_message(tg_token, chat_id, f"✅ YouTube: {len(yt_channels)} channels, {total_vids} videos", disable_preview=True)
                 if podcasts:
-                    send_message(tg_token, chat_id, f"🔄 Refreshing {len(podcasts)} podcast feeds...", disable_preview=True)
+                    send_message(tg_token, chat_id, f"🔄 {label} {len(podcasts)} podcast feeds...", disable_preview=True)
                     pod_feeds, pod_embeddings, pod_index = build_podcast_cache(podcasts)
                     total_eps = sum(len(f["episodes"]) for f in pod_feeds.values())
-                    send_message(tg_token, chat_id, f"✅ Podcast cache refreshed: {len(pod_feeds)} feeds, {total_eps} episodes", disable_preview=True)
+                    send_message(tg_token, chat_id, f"✅ Podcasts: {len(pod_feeds)} feeds, {total_eps} episodes", disable_preview=True)
                 if not yt_creators and not podcasts:
                     send_message(tg_token, chat_id, "No creators in current file.", disable_preview=True)
                 continue
@@ -190,34 +233,4 @@ def main():
 
             results = merge_search_results(yt_results, pod_results)
 
-            total_results = 0
-            for group in results:
-                if group["source"] == "youtube":
-                    send_message(tg_token, chat_id, f"📺 {group['creator']}", disable_preview=True)
-                    for video in group["videos"]:
-                        date_str = format_date(video.get("published_at", ""))
-                        if date_str:
-                            send_message(tg_token, chat_id, date_str, disable_preview=True)
-                        send_video_url(tg_token, chat_id, video["url"])
-                    total_results += len(group["videos"])
-                else:
-                    send_message(tg_token, chat_id, f"🎙 {group['creator']}", disable_preview=True)
-                    for ep in group["episodes"]:
-                        short_desc = truncate(ep.get("description", ""), 200)
-                        date_str = format_date(ep.get("published_at", ""))
-                        caption = f"<code>{ep['title']}</code>"
-                        if date_str:
-                            caption += f"\n{date_str}"
-                        if short_desc:
-                            caption += f"\n\n{short_desc}"
-                        thumb = ep.get("thumbnail", "")
-                        if thumb:
-                            send_photo(tg_token, chat_id, thumb, caption=caption, parse_mode="HTML")
-                        else:
-                            send_message(tg_token, chat_id, caption, parse_mode="HTML", disable_preview=True)
-                    total_results += len(group["episodes"])
-
-            if total_results == 0:
-                send_message(tg_token, chat_id, "No relevant content found. Try a broader topic?")
-            else:
-                send_message(tg_token, chat_id, f"✅ Found {total_results} results", disable_preview=True)
+            send_search_results(tg_token, chat_id, results)

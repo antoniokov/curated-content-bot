@@ -47,7 +47,8 @@ python3 bot.py --creators podcasts_all.csv  # all podcasts only (no YouTube quot
 ## Bot commands
 
 - `/start` — show help
-- `/refresh` — re-fetch YouTube videos and podcast feeds, recompute embeddings
+- `/refresh` — incremental update: fetch only new YouTube videos since last refresh, re-fetch all podcast RSS feeds, recompute embeddings
+- `/rebuild` — full rebuild from scratch: discard all cached data, re-fetch every video and episode, recompute embeddings. Use after code changes or when the cache seems stale.
 
 ## API quota
 
@@ -66,7 +67,7 @@ src/
   telegram.py           — Telegram Bot API helpers
   main.py               — main loop, command handling, auto-reload
 tests/
-  test_bot.py           — 12 pytest tests covering the core pipeline
+  test_bot.py           — 14 pytest tests covering the core pipeline
 data/
   creators.csv          — 96 YouTube channels + 59 podcasts
   (auto-generated cache and embedding files)
