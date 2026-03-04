@@ -8,7 +8,7 @@ import signal
 import sys
 import time
 
-from src.config import load_env, load_creators, setup_logging, MAX_RESULTS
+from src.config import load_env, load_creators, setup_logging, MAX_RESULTS, cache_usage, CACHE_WARN_RATIO
 from src.utils import truncate, format_date, format_duration, format_views, escape_html
 from src.embeddings import update_embed_model
 from src.youtube import get_youtube_cache, build_youtube_cache, search_youtube_cache
@@ -153,6 +153,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--creators", default="creators.csv", help="Path to creators CSV (default: creators.csv)")
     parser.add_argument("--dev", action="store_true", help="Dev mode: enable auto-reload, skip auth check, DEBUG logging")
+    parser.add_argument("--refresh", action="store_true", help="Rebuild caches and exit (for scheduled runs)")
     args = parser.parse_args()
 
     setup_logging(debug=args.dev)
@@ -165,11 +166,28 @@ def main():
     tg_token = env.get("TELEGRAM_BOT_TOKEN")
     allowed_chat_ids = env.get("ALLOWED_CHAT_IDS", set())
 
-    if not yt_key or not tg_token:
-        logger.error("YOUTUBE_API_KEY and TELEGRAM_BOT_TOKEN must be set in .env")
+    if not yt_key:
+        logger.error("YOUTUBE_API_KEY must be set in .env")
+        sys.exit(1)
+
+    if not args.refresh and not tg_token:
+        logger.error("TELEGRAM_BOT_TOKEN must be set in .env")
         sys.exit(1)
 
     yt_creators, podcasts = load_creators(args.creators)
+
+    # --refresh: rebuild caches and exit (no Telegram polling)
+    if args.refresh:
+        logger.info("Refreshing caches for %d YouTube channels + %d podcasts...", len(yt_creators), len(podcasts))
+        if yt_creators:
+            build_youtube_cache(yt_creators, yt_key)
+            logger.info("YouTube cache rebuilt.")
+        if podcasts:
+            build_podcast_cache(podcasts)
+            logger.info("Podcast cache rebuilt.")
+        logger.info("Cache refresh complete.")
+        return
+
     mode = "dev" if args.dev else "production"
     logger.info("Bot started (%s). Watching %d YouTube channels + %d podcasts.", mode, len(yt_creators), len(podcasts))
 
@@ -273,5 +291,14 @@ def main():
             results = merge_search_results(yt_results, pod_results)
 
             send_search_results(tg_token, chat_id, results)
+
+            # Warn if cache is getting large
+            total_bytes, ratio = cache_usage()
+            if ratio >= CACHE_WARN_RATIO:
+                pct = int(ratio * 100)
+                mb = total_bytes // (1024 * 1024)
+                send_message(tg_token, chat_id,
+                    f"⚠️ Cache is at {pct}% ({mb} MB). Ping Anton to take a look.",
+                    disable_preview=True)
 
     logger.info("Shutdown complete.")

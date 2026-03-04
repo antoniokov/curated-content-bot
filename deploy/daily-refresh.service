@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh curated content bot caches
+
+[Service]
+Type=oneshot
+User=deploy
+WorkingDirectory=/opt/curated-content-bot
+ExecStart=/opt/curated-content-bot/.venv/bin/python3 bot.py --refresh

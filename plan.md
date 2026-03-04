@@ -12,11 +12,11 @@
 [x] Add video/podcast duration and YouTube view count next to the published date
 [x] Make embedding model truly local (local_files_only=True) and add /updatemodel command
 [x] Production hardening: --dev/prod split, auth check, XXE fix, HTTP timeouts, graceful shutdown, HTML escaping, pinned deps
+[x] Prepare for DigitalOcean deployment: --refresh CLI flag, systemd service + daily timer, cache size warning, README deployment guide
 
 ## TODO
-[] Ensure  easy updates with minimalistic CI/CD
-[] Deploy to my personal DigitalOcean server
 [] Include the list of the available commands (together with their descriptions) with the Telegram bot (to be read in Telegram)
+[] Prepare for multi-user: upload a list of creators via Telegram (limit to 500 at most), share cache across all users
 [] Swap private podcast feeds that are unreachable with their public equivalents
-[] Add a command to check the current daily YouTube quota available
+[] Add a command to check the current daily YouTube quota available (dev only?)
 [] Allow to add a creator from Telegram bot (does it need AI to enrich things?)

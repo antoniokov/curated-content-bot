@@ -11,6 +11,8 @@ DATA_DIR = os.path.join(PROJECT_DIR, "data")
 CACHE_MAX_AGE = 24 * 60 * 60  # 24 hours in seconds
 SIMILARITY_THRESHOLD = 0.45    # minimum cosine similarity to consider relevant
 MAX_RESULTS = 10               # top N results across all sources
+MAX_CACHE_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB limit for all cache files in data/
+CACHE_WARN_RATIO = 0.8                     # warn when cache exceeds this fraction of limit
 LOG_DIR = os.path.join(PROJECT_DIR, "logs")
 LOG_FILE = os.path.join(LOG_DIR, "bot.log")
 
@@ -50,6 +52,24 @@ def load_env():
         env["ALLOWED_CHAT_IDS"] = set()
 
     return env
+
+
+_CACHE_FILES = [
+    ".youtube_cache.json", ".youtube_embeddings.npz",
+    ".podcast_cache.json", ".podcast_embeddings.npz",
+]
+
+
+def cache_usage():
+    """Return (total_bytes, fraction) of cache files relative to MAX_CACHE_BYTES."""
+    total = 0
+    for name in _CACHE_FILES:
+        path = os.path.join(DATA_DIR, name)
+        try:
+            total += os.path.getsize(path)
+        except OSError:
+            pass
+    return total, total / MAX_CACHE_BYTES
 
 
 def load_creators(csv_filename="creators.csv"):

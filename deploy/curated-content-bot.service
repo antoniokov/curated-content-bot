@@ -1,0 +1,15 @@
+[Unit]
+Description=Curated Content Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/opt/curated-content-bot
+ExecStart=/opt/curated-content-bot/.venv/bin/python3 bot.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

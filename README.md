@@ -45,6 +45,7 @@ python3 bot.py --dev                              # dev mode (auto-reload, no au
 python3 bot.py --dev --creators creators_test.csv # dev with test YouTube (2 channels)
 python3 bot.py --dev --creators podcasts_test.csv # dev with test podcasts (3 podcasts)
 python3 bot.py                                    # production mode (no auto-reload, auth enforced)
+python3 bot.py --refresh                          # rebuild caches and exit (for cron/systemd timer)
 ```
 
 ## Bot commands
@@ -85,3 +86,75 @@ source .venv/bin/activate
 pip install -r requirements-dev.txt
 python3 -m pytest tests/test_bot.py -v
 ```
+
+## Deployment (DigitalOcean / any Linux server)
+
+### Prerequisites
+
+- Ubuntu/Debian with systemd
+- Python 3.10+
+- A `.env` file with `YOUTUBE_API_KEY`, `TELEGRAM_BOT_TOKEN`, and `ALLOWED_CHAT_IDS`
+
+### Install
+
+```bash
+# Clone the repo
+git clone <repo-url> /opt/curated-content-bot
+cd /opt/curated-content-bot
+
+# Create a dedicated user (no login shell)
+sudo useradd -r -s /usr/sbin/nologin deploy
+
+# Set up Python venv and install dependencies
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Create .env with your API keys
+cp .env.example .env  # or create manually
+# Edit .env with your YOUTUBE_API_KEY, TELEGRAM_BOT_TOKEN, ALLOWED_CHAT_IDS
+
+# Build initial caches (takes a few minutes)
+python3 bot.py --refresh
+
+# Set ownership
+sudo chown -R deploy:deploy /opt/curated-content-bot
+```
+
+### systemd setup
+
+```bash
+# Install service files
+sudo cp deploy/curated-content-bot.service /etc/systemd/system/
+sudo cp deploy/daily-refresh.service /etc/systemd/system/
+sudo cp deploy/daily-refresh.timer /etc/systemd/system/
+
+# Enable and start
+sudo systemctl daemon-reload
+sudo systemctl enable --now curated-content-bot
+sudo systemctl enable --now daily-refresh.timer
+```
+
+### Useful commands
+
+```bash
+# Check bot status
+sudo systemctl status curated-content-bot
+
+# View logs (live)
+sudo journalctl -u curated-content-bot -f
+
+# Restart after code changes
+cd /opt/curated-content-bot && git pull
+sudo systemctl restart curated-content-bot
+
+# Trigger a manual cache refresh
+sudo systemctl start daily-refresh
+
+# Check when the next refresh is scheduled
+systemctl list-timers daily-refresh.timer
+```
+
+### CLI: `--refresh`
+
+`python3 bot.py --refresh` rebuilds all caches and exits (no Telegram polling). This is what the daily systemd timer runs. The running bot picks up fresh cache files automatically on the next search query.
