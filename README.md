@@ -91,68 +91,151 @@ python3 -m pytest tests/test_bot.py -v
 
 ### Prerequisites
 
-- Ubuntu/Debian with systemd
+- Ubuntu/Debian droplet with systemd (2 GB RAM recommended — the embedding model + caches need ~200 MB at peak, and 2 GB gives comfortable headroom)
 - Python 3.10+
-- A `.env` file with `YOUTUBE_API_KEY`, `TELEGRAM_BOT_TOKEN`, and `ALLOWED_CHAT_IDS`
+- Your API keys ready: `YOUTUBE_API_KEY`, `TELEGRAM_BOT_TOKEN`, `ALLOWED_CHAT_IDS`
 
-### Install
+### Step 1: SSH into your server
 
 ```bash
-# Clone the repo
-git clone <repo-url> /opt/curated-content-bot
-cd /opt/curated-content-bot
-
-# Create a dedicated user (no login shell)
-sudo useradd -r -s /usr/sbin/nologin deploy
-
-# Set up Python venv and install dependencies
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-# Create .env with your API keys
-cp .env.example .env  # or create manually
-# Edit .env with your YOUTUBE_API_KEY, TELEGRAM_BOT_TOKEN, ALLOWED_CHAT_IDS
-
-# Build initial caches (takes a few minutes)
-python3 bot.py --refresh
-
-# Set ownership
-sudo chown -R deploy:deploy /opt/curated-content-bot
+ssh root@<your-server-ip>
 ```
 
-### systemd setup
+### Step 2: Install system dependencies
+
+```bash
+apt update && apt upgrade -y
+apt install -y python3 python3-venv python3-pip git
+python3 --version  # verify 3.10+
+```
+
+### Step 3: Create a dedicated `deploy` user
+
+```bash
+useradd -r -s /usr/sbin/nologin deploy
+```
+
+This is a system user with no login shell — it only runs the bot service. If the bot is ever compromised, the attacker is confined to `/opt/curated-content-bot` and can't access the rest of the system.
+
+### Step 4: Clone the repo
+
+```bash
+git clone https://github.com/antoniokov/curated-content-bot.git /opt/curated-content-bot
+cd /opt/curated-content-bot
+```
+
+### Step 5: Set up Python venv and install dependencies
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+**CPU-only server** (most VPS / droplets) — saves ~2 GB of disk by skipping NVIDIA/CUDA packages:
+
+```bash
+pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+```
+
+**GPU server:**
+
+```bash
+pip install -r requirements.txt
+```
+
+This installs `sentence-transformers` (which pulls in PyTorch), `numpy`, and `defusedxml`. The embedding model (~80 MB) downloads automatically on first run.
+
+### Step 6: Create the `.env` file
+
+```bash
+nano /opt/curated-content-bot/.env
+```
+
+Paste the following, replacing the placeholder values with your actual keys:
+
+```
+YOUTUBE_API_KEY=your_youtube_api_key_here
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
+ALLOWED_CHAT_IDS=your_telegram_user_id_here
+```
+
+Save with Ctrl+O, Enter, Ctrl+X. `ALLOWED_CHAT_IDS` is comma-separated if you have multiple users.
+
+### Step 7: Add your creators CSV
+
+The creators list is specific to each deployment and is not included in the repo. Create it on the server:
+
+```bash
+nano /opt/curated-content-bot/data/creators.csv
+```
+
+Paste your CSV contents (columns: `type,name,url,channel_id,apple_podcasts_id`) and save with Ctrl+O, Enter, Ctrl+X.
+
+Alternatively, upload the file from your local machine:
+
+```bash
+scp data/creators.csv root@<your-server-ip>:/opt/curated-content-bot/data/creators.csv
+```
+
+### Step 8: Build initial caches
+
+```bash
+source .venv/bin/activate
+python3 bot.py --refresh
+```
+
+This fetches all YouTube videos and podcast episodes, computes embeddings, and saves cache files. Takes a few minutes on first run.
+
+### Step 9: Set file ownership
+
+```bash
+chown -R deploy:deploy /opt/curated-content-bot
+```
+
+### Step 10: Install and start systemd services
 
 ```bash
 # Install service files
-sudo cp deploy/curated-content-bot.service /etc/systemd/system/
-sudo cp deploy/daily-refresh.service /etc/systemd/system/
-sudo cp deploy/daily-refresh.timer /etc/systemd/system/
+cp deploy/curated-content-bot.service /etc/systemd/system/
+cp deploy/daily-refresh.service /etc/systemd/system/
+cp deploy/daily-refresh.timer /etc/systemd/system/
+systemctl daemon-reload
 
 # Enable and start
-sudo systemctl daemon-reload
-sudo systemctl enable --now curated-content-bot
-sudo systemctl enable --now daily-refresh.timer
+systemctl enable --now curated-content-bot
+systemctl enable --now daily-refresh.timer
 ```
 
-### Useful commands
+Three units are installed:
+- `curated-content-bot.service` — runs the bot continuously, restarts on failure
+- `daily-refresh.service` — oneshot that rebuilds caches
+- `daily-refresh.timer` — triggers the refresh daily at 03:00 UTC
+
+### Step 11: Verify it's running
 
 ```bash
-# Check bot status
-sudo systemctl status curated-content-bot
+systemctl status curated-content-bot
+journalctl -u curated-content-bot -f        # live logs
+systemctl list-timers daily-refresh.timer    # next scheduled refresh
+```
 
-# View logs (live)
-sudo journalctl -u curated-content-bot -f
+Send a message to your bot in Telegram to confirm it responds.
 
+### Ongoing operations
+
+```bash
 # Restart after code changes
 cd /opt/curated-content-bot && git pull
-sudo systemctl restart curated-content-bot
+systemctl restart curated-content-bot
 
 # Trigger a manual cache refresh
-sudo systemctl start daily-refresh
+systemctl start daily-refresh
 
-# Check when the next refresh is scheduled
-systemctl list-timers daily-refresh.timer
+# View refresh logs
+journalctl -u daily-refresh -e
+
+# Check bot logs (also at /opt/curated-content-bot/logs/bot.log)
+journalctl -u curated-content-bot -n 100
 ```
 
 ### CLI: `--refresh`
