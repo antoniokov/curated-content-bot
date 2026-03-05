@@ -46,6 +46,7 @@ python3 bot.py --dev --creators creators_test.csv # dev with test YouTube (2 cha
 python3 bot.py --dev --creators podcasts_test.csv # dev with test podcasts (3 podcasts)
 python3 bot.py                                    # production mode (no auto-reload, auth enforced)
 python3 bot.py --refresh                          # rebuild caches and exit (for cron/systemd timer)
+python3 check_creators.py                         # check creators.csv for broken channels/feeds
 ```
 
 ## Bot commands
@@ -57,12 +58,13 @@ python3 bot.py --refresh                          # rebuild caches and exit (for
 
 ## API quota
 
-YouTube uses `playlistItems.list` (1 unit per 50 videos) and `videos.list` (1 unit per 50 videos) for metadata. Initial full cache build costs ~960 units; incremental daily refreshes cost ~100–250 units. Searches themselves cost 0 units. The free tier is 10,000 units/day (resets midnight Pacific). Podcast search is free (local RSS + embeddings).
+YouTube uses `playlistItems.list` (1 unit per 50 videos) and `videos.list` (1 unit per 50 videos) for metadata. Searches themselves cost 0 units. The free tier is 10,000 units/day (resets midnight Pacific). Podcast search is free (local RSS + embeddings).
 
 ## Project structure
 
 ```
 bot.py                  — entry point
+check_creators.py       — check creators.csv for broken channels/feeds
 src/
   config.py             — paths, constants, load_env(), load_creators()
   utils.py              — text helpers, duration/views formatting
@@ -72,9 +74,9 @@ src/
   telegram.py           — Telegram Bot API helpers
   main.py               — main loop, command handling, auto-reload
 tests/
-  test_bot.py           — 18 pytest tests covering the core pipeline
+  test_bot.py           — 20 pytest tests covering the core pipeline
 data/
-  creators.csv          — 96 YouTube channels + 59 podcasts
+  creators.csv          — your YouTube channels + podcasts (not in repo)
   (auto-generated cache and embedding files)
 .env                    — YouTube Data API key + Telegram bot token
 ```

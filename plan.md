@@ -28,12 +28,10 @@
 [x] Production hardening: --dev/prod split, auth check, XXE fix, HTTP timeouts, graceful shutdown, HTML escaping, pinned deps
 [x] Cleanup after ONNX migration: remove double normalization, unused kwargs, redundant astype, cache token_type_ids check
 [x] Restore embedding progress bar lost during ONNX migration
+[x] Fix creators.csv: add check_creators.py CLI tool, fix 33 YouTube channel IDs, replace 3 expired Pushkin+ feeds with public Omnycontent feeds
 
 ## To do
 
-[] Fix `creators.csv`. Add a CLI command to identify issues:
-    [] Fix channel IDs for which playlists are not found
-    [] Replace private podcast feeds that are unreachable with their public equivalents
 [] Include creators_sample.csv file in the repo
 [] After every cache refresh or rebuild, add a logging message showing how much each cache file weighs and the total size of all the files.
 [] Add a command to check the current daily YouTube quota available (dev only?)
