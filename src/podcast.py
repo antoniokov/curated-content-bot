@@ -196,7 +196,7 @@ def build_podcast_cache(podcasts):
     total_eps = len(texts)
     if texts:
         logger.info("Computing embeddings for %d episodes...", total_eps)
-        embeddings = model.encode(texts, batch_size=32)
+        embeddings = model.encode(texts, batch_size=32, show_progress_bar=True)
         np.savez(_embeddings_path(), embeddings=embeddings, index=np.array(index, dtype=object))
         logger.info("Embeddings saved: %s", embeddings.shape)
     else:

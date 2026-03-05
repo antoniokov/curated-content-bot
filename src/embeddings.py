@@ -34,13 +34,18 @@ class ONNXEmbedder:
         self._input_names = {inp.name for inp in self.session.get_inputs()}
         self._needs_token_type_ids = "token_type_ids" in self._input_names
 
-    def encode(self, texts, batch_size=64):
+    def encode(self, texts, batch_size=64, show_progress_bar=False):
         """Encode texts into embeddings (matches SentenceTransformer.encode interface)."""
         if isinstance(texts, str):
             texts = [texts]
 
         all_embeddings = []
-        for i in range(0, len(texts), batch_size):
+        batches = range(0, len(texts), batch_size)
+        if show_progress_bar:
+            from tqdm import tqdm
+            batches = tqdm(batches, desc="Encoding", unit="batch",
+                           total=len(batches))
+        for i in batches:
             batch = texts[i:i + batch_size]
             encoded = self.tokenizer.encode_batch(batch)
 

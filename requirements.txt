@@ -3,3 +3,4 @@ huggingface-hub
 numpy>=2.0
 onnxruntime
 tokenizers
+tqdm

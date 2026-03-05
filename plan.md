@@ -14,6 +14,7 @@
 [x] Production hardening: --dev/prod split, auth check, XXE fix, HTTP timeouts, graceful shutdown, HTML escaping, pinned deps
 [x] Prepare for DigitalOcean deployment: --refresh CLI flag, systemd service + daily timer, cache size warning, README deployment guide
 [x] Cleanup after ONNX migration: remove double normalization, unused kwargs, redundant astype, cache token_type_ids check
+[x] Restore embedding progress bar lost during ONNX migration
 
 ## TODO
 

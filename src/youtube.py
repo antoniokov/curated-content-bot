@@ -217,7 +217,7 @@ def build_youtube_cache(yt_creators, api_key, existing_channels=None):
     total_videos = len(texts)
     if texts:
         logger.info("Computing embeddings for %d videos...", total_videos)
-        embeddings = model.encode(texts, batch_size=32)
+        embeddings = model.encode(texts, batch_size=32, show_progress_bar=True)
         np.savez(_youtube_embeddings_path(), embeddings=embeddings,
                  index=np.array(index, dtype=object))
         logger.info("YouTube embeddings saved: %s", embeddings.shape)
