@@ -10,7 +10,7 @@ import time
 
 from src.config import load_env, load_creators, setup_logging, MAX_RESULTS, cache_usage, CACHE_WARN_RATIO
 from src.utils import truncate, format_date, format_duration, format_views, escape_html
-from src.embeddings import update_embed_model
+from src.embeddings import update_embed_model, maybe_unload_model
 from src.youtube import get_youtube_cache, build_youtube_cache, search_youtube_cache
 from src.podcast import get_podcast_cache, build_podcast_cache, search_all_podcasts
 from src.telegram import tg_request, send_message, send_video_url, send_photo
@@ -204,6 +204,7 @@ def main():
     while not _shutdown:
         if args.dev:
             _check_reload()
+        maybe_unload_model()
         try:
             updates = tg_request("getUpdates", tg_token, {
                 "offset": offset,
