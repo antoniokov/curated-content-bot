@@ -87,11 +87,11 @@ pip install -r requirements-dev.txt
 python3 -m pytest tests/test_bot.py -v
 ```
 
-## Deployment (DigitalOcean / any Linux server)
+## Deployment (any Linux server)
 
 ### Prerequisites
 
-- Ubuntu/Debian droplet with systemd (2 GB RAM recommended — the embedding model + caches need ~200 MB at peak, and 2 GB gives comfortable headroom)
+- Ubuntu/Debian server with systemd (2 GB RAM recommended — the embedding model + caches need ~200 MB at peak, and 2 GB gives comfortable headroom)
 - Python 3.10+
 - Your API keys ready: `YOUTUBE_API_KEY`, `TELEGRAM_BOT_TOKEN`, `ALLOWED_CHAT_IDS`
 
@@ -131,7 +131,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-**CPU-only server** (most VPS / droplets) — saves ~2 GB of disk by skipping NVIDIA/CUDA packages:
+**CPU-only server** (most VPS instances) — saves ~2 GB of disk by skipping NVIDIA/CUDA packages:
 
 ```bash
 pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
@@ -221,19 +221,30 @@ systemctl list-timers daily-refresh.timer    # next scheduled refresh
 
 Send a message to your bot in Telegram to confirm it responds.
 
-### Ongoing operations
+### Deploying changes from your dev machine
 
-Since the repo is owned by `deploy` but you run `git pull` as root, you'll need to allow this once:
+Create a `.env.dev` file in the project root (it's gitignored):
+
+```
+SERVER=<your-server-ip>
+```
+
+Then deploy with:
+
+```bash
+make deploy          # git pull + restart the bot
+make deploy-rebuild  # git pull + restart + rebuild caches
+```
+
+Since the repo is owned by `deploy` but you run `git pull` as root, you'll need to allow this once on the server:
 
 ```bash
 git config --global --add safe.directory /opt/curated-content-bot
 ```
 
-```bash
-# Restart after code changes
-cd /opt/curated-content-bot && git pull
-systemctl restart curated-content-bot
+### Server-side operations
 
+```bash
 # Trigger a manual cache refresh
 systemctl start daily-refresh
 
