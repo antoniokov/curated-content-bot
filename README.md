@@ -77,6 +77,7 @@ tests/
   test_bot.py           — 20 pytest tests covering the core pipeline
 data/
   creators.csv          — your YouTube channels + podcasts (not in repo)
+cache/
   (auto-generated cache and embedding files)
 .env                    — YouTube Data API key + Telegram bot token
 ```

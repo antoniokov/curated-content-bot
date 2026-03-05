@@ -12,7 +12,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-from src.config import DATA_DIR, CACHE_MAX_AGE, SIMILARITY_THRESHOLD
+from src.config import CACHE_DIR, CACHE_MAX_AGE, SIMILARITY_THRESHOLD
 from src.embeddings import get_embed_model
 from src.utils import truncate, parse_iso8601_duration
 
@@ -127,11 +127,11 @@ def fetch_video_details(video_ids, api_key):
 # --- Caching ---
 
 def _youtube_cache_path():
-    return os.path.join(DATA_DIR, ".youtube_cache.json")
+    return os.path.join(CACHE_DIR, ".youtube_cache.json")
 
 
 def _youtube_embeddings_path():
-    return os.path.join(DATA_DIR, ".youtube_embeddings.npz")
+    return os.path.join(CACHE_DIR, ".youtube_embeddings.npz")
 
 
 def load_youtube_cache():

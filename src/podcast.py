@@ -12,7 +12,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-from src.config import DATA_DIR, CACHE_MAX_AGE, SIMILARITY_THRESHOLD
+from src.config import CACHE_DIR, CACHE_MAX_AGE, SIMILARITY_THRESHOLD
 from src.embeddings import get_embed_model
 from src.utils import strip_html, truncate, parse_podcast_duration
 
@@ -125,11 +125,11 @@ def fetch_rss_episodes(feed_url, timeout=10):
 # --- Caching ---
 
 def _cache_path():
-    return os.path.join(DATA_DIR, ".podcast_cache.json")
+    return os.path.join(CACHE_DIR, ".podcast_cache.json")
 
 
 def _embeddings_path():
-    return os.path.join(DATA_DIR, ".podcast_embeddings.npz")
+    return os.path.join(CACHE_DIR, ".podcast_embeddings.npz")
 
 
 def load_podcast_cache():
