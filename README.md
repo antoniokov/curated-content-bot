@@ -35,7 +35,7 @@ ALLOWED_CHAT_IDS=123456789
 
 `ALLOWED_CHAT_IDS` is a comma-separated list of Telegram user IDs allowed to use the bot. In dev mode (`--dev`), this check is skipped.
 
-Add your creators to `data/creators.csv` (columns: type, name, url, channel_id, apple_podcasts_id).
+Add your creators to `data/creators.csv` (columns: type, name, url, channel_id, apple_podcasts_id). See `data/creators_sample.csv` for an example.
 
 ## Running
 
@@ -65,8 +65,8 @@ YouTube uses `playlistItems.list` (1 unit per 50 videos) and `videos.list` (1 un
 
 ```
 bot.py                  — entry point
-  check_creators.py     — check creators.csv for broken channels/feeds
 scripts/
+  check_creators.py     — check creators.csv for broken channels/feeds
   extract_subscriptions.py — extract YouTube subscriptions HTML to CSV
 src/
   config.py             — paths, constants, load_env(), load_creators()
@@ -80,6 +80,7 @@ tests/
   test_bot.py           — 20 pytest tests covering the core pipeline
 data/
   creators.csv          — your YouTube channels + podcasts (not in repo)
+  creators_sample.csv   — example creators file with a few channels + podcasts
 cache/
   (auto-generated cache and embedding files)
 .env                    — YouTube Data API key + Telegram bot token
@@ -240,6 +241,7 @@ Then deploy with:
 ```bash
 make deploy          # git pull + restart the bot
 make deploy-rebuild  # git pull + restart + rebuild caches
+make deploy-csv CSV=data/creators.csv  # upload CSV + full cache rebuild
 ```
 
 Since the repo is owned by `deploy` but you run `git pull` as root, you'll need to allow this once on the server:

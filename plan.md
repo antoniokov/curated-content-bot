@@ -31,10 +31,10 @@
 [x] Fix creators.csv: add check_creators.py CLI tool, fix 33 YouTube channel IDs, replace 3 expired Pushkin+ feeds with public Omnycontent feeds
 [x] Move cache files from data/ to separate cache/ directory
 [x] Add extract_subscriptions.py script to convert YouTube subscriptions HTML export to creators.csv format
+[x] Include creators_sample.csv file in the repo
 
 ## To do
 
-[] Include creators_sample.csv file in the repo
 [] After every cache refresh or rebuild, add a logging message showing how much each cache file weighs and the total size of all the files.
 [] Add a command to check the current daily YouTube quota available (dev only?)
 
@@ -47,6 +47,7 @@
 [x] Upgrade Python to 3.14 and upgrade related dependencies (numpy)
 [x] Deploy bot to the upgraded Droplet
 [x] Update bot remotely from my dev computer (git pull + restart, rebuild if necessary)
+[x] Add `make deploy-csv` command to upload a CSV and rebuild caches on the server
 
 ## To do
 
