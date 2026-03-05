@@ -465,6 +465,28 @@ def test_merge_search_results_ranks_across_sources():
     assert "Episode Y" not in all_titles
 
 
+def test_merge_search_results_caps_per_creator():
+    """No more than max_per_creator items from the same creator."""
+    yt_results = [
+        {"creator": "Prolific Channel", "videos": [
+            {"title": f"Video {i}", "_similarity": 0.9 - i * 0.01, "url": f"https://yt.com/{i}"}
+            for i in range(6)
+        ]},
+        {"creator": "Other Channel", "videos": [
+            {"title": "Other Video", "_similarity": 0.5, "url": "https://yt.com/other"},
+        ]},
+    ]
+
+    results = merge_search_results(yt_results, [], max_results=10, max_per_creator=3)
+
+    prolific = next(g for g in results if g["creator"] == "Prolific Channel")
+    assert len(prolific["videos"]) == 3
+
+    # Other Channel should appear since there's room after the cap
+    other = next(g for g in results if g["creator"] == "Other Channel")
+    assert len(other["videos"]) == 1
+
+
 def test_merge_search_results_preserves_group_structure():
     """Merged results are grouped by source+creator with correct fields."""
     yt_results = [

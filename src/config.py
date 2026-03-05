@@ -13,6 +13,7 @@ os.environ.setdefault("HF_HOME", os.path.join(PROJECT_DIR, ".hf_cache"))
 CACHE_MAX_AGE = 24 * 60 * 60  # 24 hours in seconds
 SIMILARITY_THRESHOLD = 0.45    # minimum cosine similarity to consider relevant
 MAX_RESULTS = 10               # top N results across all sources
+MAX_PER_CREATOR = 3            # max items from the same creator in results
 MAX_CACHE_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB limit for all cache files in cache/
 CACHE_WARN_RATIO = 0.8                     # warn when cache exceeds this fraction of limit
 LOG_DIR = os.path.join(PROJECT_DIR, "logs")

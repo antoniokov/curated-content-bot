@@ -8,7 +8,7 @@ import signal
 import sys
 import time
 
-from src.config import load_env, load_creators, setup_logging, MAX_RESULTS, cache_usage, CACHE_WARN_RATIO
+from src.config import load_env, load_creators, setup_logging, MAX_RESULTS, MAX_PER_CREATOR, cache_usage, CACHE_WARN_RATIO
 from src.utils import truncate, format_date, format_duration, format_views, escape_html
 from src.embeddings import update_embed_model, maybe_unload_model
 from src.youtube import get_youtube_cache, build_youtube_cache, search_youtube_cache
@@ -83,7 +83,7 @@ def send_search_results(tg_token, chat_id, results):
     return total_results
 
 
-def merge_search_results(yt_results, pod_results, max_results=MAX_RESULTS):
+def merge_search_results(yt_results, pod_results, max_results=MAX_RESULTS, max_per_creator=MAX_PER_CREATOR):
     """Merge YouTube and podcast results, rank by similarity, return top N grouped by creator."""
     # Flatten all individual items with metadata
     flat = []
@@ -105,9 +105,19 @@ def merge_search_results(yt_results, pod_results, max_results=MAX_RESULTS):
                 "apple_podcasts_id": group.get("apple_podcasts_id", ""),
             })
 
-    # Sort by similarity descending, take top N
+    # Sort by similarity descending, take top N with per-creator cap
     flat.sort(key=lambda x: x["similarity"], reverse=True)
-    flat = flat[:max_results]
+    selected = []
+    creator_counts = {}
+    for entry in flat:
+        key = (entry["source"], entry["creator"])
+        if creator_counts.get(key, 0) >= max_per_creator:
+            continue
+        selected.append(entry)
+        creator_counts[key] = creator_counts.get(key, 0) + 1
+        if len(selected) >= max_results:
+            break
+    flat = selected
 
     # Re-group by (source, creator), preserving order of first appearance
     groups = []

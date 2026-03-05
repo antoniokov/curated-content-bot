@@ -7,6 +7,7 @@
 [x] Add /rebuild command for full cache rebuild (vs incremental /refresh). Fix YouTube date display and add end-to-end test.
 [x] Add video/podcast duration and YouTube view count next to the published date
 [x] Make embedding model truly local (local_files_only=True) and add /updatemodel command
+[x] Limit results to at most 3 per creator to ensure variety
 
 ## To do
 

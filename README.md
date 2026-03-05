@@ -13,7 +13,7 @@ Telegram bot (`@curated_content_bot`). Both YouTube and podcasts follow the same
    - **Podcasts**: all episodes from each podcast's RSS feed
 2. Titles and descriptions are embedded using the `all-MiniLM-L6-v2` model (sentence-transformers)
 3. On each search, the topic is embedded and compared against all cached embeddings using cosine similarity, with keyword fallback
-4. Results from all sources are ranked by similarity and the top 10 are sent back, grouped by creator
+4. Results from all sources are ranked by similarity and the top 10 are sent back (max 3 per creator), grouped by creator
 
 YouTube links auto-unfurl into rich previews. Podcast episodes show as photo cards with the episode title (tap-to-copy) and a short description.
 
@@ -77,7 +77,7 @@ src/
   telegram.py           — Telegram Bot API helpers
   main.py               — main loop, command handling, auto-reload
 tests/
-  test_bot.py           — 20 pytest tests covering the core pipeline
+  test_bot.py           — 21 pytest tests covering the core pipeline
 data/
   creators.csv          — your YouTube channels + podcasts (not in repo)
   creators_sample.csv   — example creators file with a few channels + podcasts
