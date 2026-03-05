@@ -266,3 +266,10 @@ journalctl -u curated-content-bot -n 100
 ### CLI: `--refresh`
 
 `python3 bot.py --refresh` rebuilds all caches and exits (no Telegram polling). This is what the daily systemd timer runs. The running bot picks up fresh cache files automatically on the next search query.
+
+To refresh only one source:
+
+```bash
+python3 bot.py --refresh-youtube   # YouTube cache only
+python3 bot.py --refresh-podcasts  # podcast cache only
+```

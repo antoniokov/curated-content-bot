@@ -36,7 +36,7 @@
 ## To do
 
 [] After every cache refresh or rebuild, add a logging message showing how much each cache file weighs and the total size of all the files.
-[] Add a command to check the current daily YouTube quota available (dev only?)
+[] Add a command to check the current daily YouTube quota available (dev only)
 
 # Deployment
 
@@ -48,7 +48,9 @@
 [x] Deploy bot to the upgraded Droplet
 [x] Update bot remotely from my dev computer (git pull + restart, rebuild if necessary)
 [x] Add `make deploy-csv` command to upload a CSV and rebuild caches on the server
+[x] Fix OOM issue on cache rebuild
+[x] Add --refresh-youtube and --refresh-podcasts CLI flags to refresh caches independently
 
 ## To do
 
-[] Fix OOM issue on cache rebuild
+

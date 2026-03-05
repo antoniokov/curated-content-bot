@@ -154,6 +154,8 @@ def main():
     parser.add_argument("--creators", default="creators.csv", help="Path to creators CSV (default: creators.csv)")
     parser.add_argument("--dev", action="store_true", help="Dev mode: enable auto-reload, skip auth check, DEBUG logging")
     parser.add_argument("--refresh", action="store_true", help="Rebuild caches and exit (for scheduled runs)")
+    parser.add_argument("--refresh-youtube", action="store_true", help="Rebuild YouTube cache only and exit")
+    parser.add_argument("--refresh-podcasts", action="store_true", help="Rebuild podcast cache only and exit")
     args = parser.parse_args()
 
     setup_logging(debug=args.dev)
@@ -170,19 +172,23 @@ def main():
         logger.error("YOUTUBE_API_KEY must be set in .env")
         sys.exit(1)
 
-    if not args.refresh and not tg_token:
+    refresh_any = args.refresh or args.refresh_youtube or args.refresh_podcasts
+
+    if not refresh_any and not tg_token:
         logger.error("TELEGRAM_BOT_TOKEN must be set in .env")
         sys.exit(1)
 
     yt_creators, podcasts = load_creators(args.creators)
 
-    # --refresh: rebuild caches and exit (no Telegram polling)
-    if args.refresh:
-        logger.info("Refreshing caches for %d YouTube channels + %d podcasts...", len(yt_creators), len(podcasts))
-        if yt_creators:
+    # --refresh / --refresh-youtube / --refresh-podcasts: rebuild caches and exit
+    if refresh_any:
+        refresh_yt = args.refresh or args.refresh_youtube
+        refresh_pod = args.refresh or args.refresh_podcasts
+        logger.info("Refreshing caches (youtube=%s, podcasts=%s)...", refresh_yt, refresh_pod)
+        if refresh_yt and yt_creators:
             build_youtube_cache(yt_creators, yt_key)
             logger.info("YouTube cache rebuilt.")
-        if podcasts:
+        if refresh_pod and podcasts:
             build_podcast_cache(podcasts)
             logger.info("Podcast cache rebuilt.")
         logger.info("Cache refresh complete.")
