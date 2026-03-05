@@ -32,6 +32,8 @@
 [x] Move cache files from data/ to separate cache/ directory
 [x] Add extract_subscriptions.py script to convert YouTube subscriptions HTML export to creators.csv format
 [x] Include creators_sample.csv file in the repo
+[x] Add --refresh-youtube and --refresh-podcasts CLI flags to refresh caches independently
+
 
 ## To do
 
@@ -49,7 +51,6 @@
 [x] Update bot remotely from my dev computer (git pull + restart, rebuild if necessary)
 [x] Add `make deploy-csv` command to upload a CSV and rebuild caches on the server
 [x] Fix OOM issue on cache rebuild
-[x] Add --refresh-youtube and --refresh-podcasts CLI flags to refresh caches independently
 
 ## To do
 
