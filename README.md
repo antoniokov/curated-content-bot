@@ -223,6 +223,12 @@ Send a message to your bot in Telegram to confirm it responds.
 
 ### Ongoing operations
 
+Since the repo is owned by `deploy` but you run `git pull` as root, you'll need to allow this once:
+
+```bash
+git config --global --add safe.directory /opt/curated-content-bot
+```
+
 ```bash
 # Restart after code changes
 cd /opt/curated-content-bot && git pull
