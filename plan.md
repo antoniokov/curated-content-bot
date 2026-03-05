@@ -52,6 +52,10 @@
 [x] Add `make deploy-csv` command to upload a CSV and rebuild caches on the server
 [x] Fix OOM issue on cache rebuild
 
+## Done
+
+[x] Pin embedding model revision and add `make deploy-cache` to upload pre-built caches from dev machine
+
 ## To do
 
 

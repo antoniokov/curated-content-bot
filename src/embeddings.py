@@ -15,6 +15,7 @@ _embed_model = None
 _last_used = 0
 MODEL_IDLE_TIMEOUT = 300  # 5 minutes
 MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2"
+MODEL_REVISION = "c9745ed1d9f207416be6d2e6f8de32d1f16199bf"
 
 
 class ONNXEmbedder:
@@ -22,10 +23,12 @@ class ONNXEmbedder:
 
     def __init__(self, model_id, local_files_only=False):
         model_path = hf_hub_download(
-            model_id, "onnx/model.onnx", local_files_only=local_files_only
+            model_id, "onnx/model.onnx",
+            revision=MODEL_REVISION, local_files_only=local_files_only,
         )
         tokenizer_path = hf_hub_download(
-            model_id, "tokenizer.json", local_files_only=local_files_only
+            model_id, "tokenizer.json",
+            revision=MODEL_REVISION, local_files_only=local_files_only,
         )
         self.session = ort.InferenceSession(model_path)
         self.tokenizer = Tokenizer.from_file(tokenizer_path)

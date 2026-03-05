@@ -193,6 +193,14 @@ python3 bot.py --refresh
 
 This fetches all YouTube videos and podcast episodes, computes embeddings, and saves cache files. Takes a few minutes on first run.
 
+Alternatively, build caches on your dev machine (faster) and upload them:
+
+```bash
+source .venv/bin/activate
+python3 bot.py --refresh   # build locally
+make deploy-cache          # upload to server
+```
+
 ### Step 9: Set file ownership
 
 ```bash
@@ -242,6 +250,7 @@ Then deploy with:
 make deploy          # git pull + restart the bot
 make deploy-rebuild  # git pull + restart + rebuild caches
 make deploy-csv CSV=data/creators.csv  # upload CSV + full cache rebuild
+make deploy-cache                      # build caches locally, upload to server
 ```
 
 Since the repo is owned by `deploy` but you run `git pull` as root, you'll need to allow this once on the server:
