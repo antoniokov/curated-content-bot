@@ -1,3 +1,5 @@
 defusedxml==0.7.1
+huggingface-hub
 numpy>=2.0
-sentence-transformers==5.2.3
+onnxruntime
+tokenizers

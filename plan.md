@@ -13,6 +13,7 @@
 [x] Make embedding model truly local (local_files_only=True) and add /updatemodel command
 [x] Production hardening: --dev/prod split, auth check, XXE fix, HTTP timeouts, graceful shutdown, HTML escaping, pinned deps
 [x] Prepare for DigitalOcean deployment: --refresh CLI flag, systemd service + daily timer, cache size warning, README deployment guide
+[x] Cleanup after ONNX migration: remove double normalization, unused kwargs, redundant astype, cache token_type_ids check
 
 ## TODO
 
@@ -20,7 +21,10 @@
     [] Fix channel IDs for which playlists are not found
     [] Replace private podcast feeds that are unreachable with their public equivalents
 [] Include the list of the available commands (together with their descriptions) with the Telegram bot (to be read in Telegram)
-[] Prepare for multi-user: upload a list of creators via Telegram (limit to 500 at most), share cache across all users
+[] Prepare for multi-user
+    [] Upload a list of creators via Telegram (limit to 500 at most)
+    [] Share cache across all users (make it per-channel?)
+    [] Do not assume the size of creators file when calculating YouTube quota
 [] Include creators_sample.csv file in the repo
 [] After every cache refresh or rebuild, add a logging message showing how much each cache file weighs and the total size of all the files.
 [] Add a command to check the current daily YouTube quota available (dev only?)
@@ -33,7 +37,9 @@
 
 [x] Upgrade Droplet to 2 GB RAM and 50 GB SSD
 [x] Upgrade Python to 3.14 and upgrade related dependencies (numpy)
-[] Deploy bot to the upgraded Droplet
+[x] Deploy bot to the upgraded Droplet
 [x] Update bot remotely from my dev computer (git pull + restart, rebuild if necessary)
 
 ## TODO
+
+[] Fix OOM issue on cache rebuild

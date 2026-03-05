@@ -196,11 +196,7 @@ def build_podcast_cache(podcasts):
     total_eps = len(texts)
     if texts:
         logger.info("Computing embeddings for %d episodes...", total_eps)
-        embeddings = model.encode(texts, show_progress_bar=True, batch_size=128)
-        # Normalize for cosine similarity (dot product on normalized vectors)
-        norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-        norms[norms == 0] = 1
-        embeddings = embeddings / norms
+        embeddings = model.encode(texts, batch_size=32)
         np.savez(_embeddings_path(), embeddings=embeddings, index=np.array(index, dtype=object))
         logger.info("Embeddings saved: %s", embeddings.shape)
     else:
@@ -236,7 +232,6 @@ def search_all_podcasts(topic, podcasts, feeds=None, embeddings=None, index=None
     # Embed the query
     model = get_embed_model()
     query_emb = model.encode([topic])
-    query_emb = query_emb / np.linalg.norm(query_emb)
 
     # Compute cosine similarities (dot product since vectors are normalized)
     similarities = (embeddings @ query_emb.T).flatten()

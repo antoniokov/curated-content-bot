@@ -217,10 +217,7 @@ def build_youtube_cache(yt_creators, api_key, existing_channels=None):
     total_videos = len(texts)
     if texts:
         logger.info("Computing embeddings for %d videos...", total_videos)
-        embeddings = model.encode(texts, show_progress_bar=True, batch_size=128)
-        norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-        norms[norms == 0] = 1
-        embeddings = embeddings / norms
+        embeddings = model.encode(texts, batch_size=32)
         np.savez(_youtube_embeddings_path(), embeddings=embeddings,
                  index=np.array(index, dtype=object))
         logger.info("YouTube embeddings saved: %s", embeddings.shape)
@@ -260,7 +257,6 @@ def search_youtube_cache(topic, channels, embeddings, index, max_total=None):
 
     model = get_embed_model()
     query_emb = model.encode([topic])
-    query_emb = query_emb / np.linalg.norm(query_emb)
 
     similarities = (embeddings @ query_emb.T).flatten()
     ranked_indices = np.argsort(similarities)[::-1]

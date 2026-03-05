@@ -8,7 +8,6 @@ from unittest.mock import patch, MagicMock
 
 import numpy as np
 import pytest
-from sentence_transformers import SentenceTransformer
 
 from src.config import DATA_DIR, load_creators, MAX_RESULTS
 from src.utils import (strip_html, truncate, format_date,
@@ -20,27 +19,17 @@ from src.main import merge_search_results, send_search_results
 
 # --- Shared fixtures ---
 
-MODEL = None
+from src.embeddings import get_embed_model
 
 
 def get_model():
-    """Load embedding model once across all tests."""
-    global MODEL
-    if MODEL is None:
-        try:
-            MODEL = SentenceTransformer("all-MiniLM-L6-v2", local_files_only=True)
-        except OSError:
-            MODEL = SentenceTransformer("all-MiniLM-L6-v2")
-    return MODEL
+    """Load embedding model once across all tests (reuses singleton)."""
+    return get_embed_model()
 
 
 def encode_and_normalize(texts):
-    """Encode texts and L2-normalize (same as the bot does)."""
-    model = get_model()
-    emb = model.encode(texts)
-    norms = np.linalg.norm(emb, axis=1, keepdims=True)
-    norms[norms == 0] = 1
-    return emb / norms
+    """Encode texts (returned already L2-normalized by ONNXEmbedder)."""
+    return get_model().encode(texts)
 
 
 YOUTUBE_PLAYLIST_RESPONSE = {
@@ -593,3 +582,41 @@ def test_metadata_flows_from_search_to_telegram():
             f"Podcast caption missing date. Got: {caption!r}")
         assert "49m" in caption, (
             f"Podcast caption missing duration. Got: {caption!r}")
+
+
+REFERENCE_TEXTS = [
+    "How Neural Networks Learn",
+    "Backpropagation and gradient descent explained in detail",
+    "Cooking Italian Pasta from Scratch",
+    "Machine Learning Fundamentals. An intro to ML and deep learning.",
+    "Best Coffee Brewing Methods. Pour-over vs French press vs espresso.",
+]
+
+
+def test_onnx_embeddings_match_reference():
+    """ONNX embeddings match reference values (generated from SentenceTransformer).
+
+    Ensures switching from PyTorch to ONNX Runtime doesn't change search quality.
+    Reference: tests/reference_embeddings.npy (cosine sim verified = 1.0 vs ST).
+    """
+    ref = np.load(os.path.join(os.path.dirname(__file__), "reference_embeddings.npy"))
+    model = get_model()
+    emb = model.encode(REFERENCE_TEXTS)
+
+    assert emb.shape == ref.shape, f"Shape mismatch: {emb.shape} vs {ref.shape}"
+
+    for i, text in enumerate(REFERENCE_TEXTS):
+        cos_sim = float(np.dot(emb[i], ref[i]))
+        assert cos_sim > 0.99, (
+            f"Embedding drift for {text!r}: cosine sim {cos_sim:.4f}")
+
+    max_diff = np.max(np.abs(emb - ref))
+    assert max_diff < 1e-4, f"Max absolute diff too large: {max_diff}"
+
+
+def test_onnx_embeddings_normalized():
+    """ONNX embedder returns L2-normalized vectors."""
+    model = get_model()
+    emb = model.encode(REFERENCE_TEXTS)
+    norms = np.linalg.norm(emb, axis=1)
+    np.testing.assert_allclose(norms, 1.0, atol=1e-5)
