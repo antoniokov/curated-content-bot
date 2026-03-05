@@ -30,6 +30,7 @@
 [x] Restore embedding progress bar lost during ONNX migration
 [x] Fix creators.csv: add check_creators.py CLI tool, fix 33 YouTube channel IDs, replace 3 expired Pushkin+ feeds with public Omnycontent feeds
 [x] Move cache files from data/ to separate cache/ directory
+[x] Add extract_subscriptions.py script to convert YouTube subscriptions HTML export to creators.csv format
 
 ## To do
 

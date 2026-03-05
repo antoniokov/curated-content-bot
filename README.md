@@ -46,7 +46,8 @@ python3 bot.py --dev --creators creators_test.csv # dev with test YouTube (2 cha
 python3 bot.py --dev --creators podcasts_test.csv # dev with test podcasts (3 podcasts)
 python3 bot.py                                    # production mode (no auto-reload, auth enforced)
 python3 bot.py --refresh                          # rebuild caches and exit (for cron/systemd timer)
-python3 check_creators.py                         # check creators.csv for broken channels/feeds
+python3 scripts/check_creators.py                 # check creators.csv for broken channels/feeds
+python3 scripts/extract_subscriptions.py          # extract YouTube subscriptions HTML to CSV
 ```
 
 ## Bot commands
@@ -64,7 +65,9 @@ YouTube uses `playlistItems.list` (1 unit per 50 videos) and `videos.list` (1 un
 
 ```
 bot.py                  — entry point
-check_creators.py       — check creators.csv for broken channels/feeds
+  check_creators.py     — check creators.csv for broken channels/feeds
+scripts/
+  extract_subscriptions.py — extract YouTube subscriptions HTML to CSV
 src/
   config.py             — paths, constants, load_env(), load_creators()
   utils.py              — text helpers, duration/views formatting
