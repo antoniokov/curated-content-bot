@@ -7,6 +7,7 @@ from logging.handlers import RotatingFileHandler
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(PROJECT_DIR, "data")
+os.environ.setdefault("HF_HOME", os.path.join(PROJECT_DIR, ".hf_cache"))
 
 CACHE_MAX_AGE = 24 * 60 * 60  # 24 hours in seconds
 SIMILARITY_THRESHOLD = 0.45    # minimum cosine similarity to consider relevant
