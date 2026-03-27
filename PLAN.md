@@ -8,10 +8,10 @@
 - [x] Add video/podcast duration and YouTube view count next to the published date
 - [x] Make embedding model truly local (local_files_only=True) and add /updatemodel command
 - [x] Limit results to at most 3 per creator to ensure variety
+- [x] Include the list of the available commands (together with their descriptions) with the Telegram bot (to be read in Telegram)
 
 ## To do
 
-- [ ] Include the list of the available commands (together with their descriptions) with the Telegram bot (to be read in Telegram)
 - [ ] Prepare for multi-user
     - [ ] Upload a list of creators via Telegram (limit to 500 at most)
     - [ ] Share cache across all users (make it per-channel?)

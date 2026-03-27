@@ -216,6 +216,13 @@ def main():
     if podcasts:
         pod_feeds, pod_embeddings, pod_index = get_podcast_cache(podcasts)
 
+    tg_request("setMyCommands", tg_token, {"commands": [
+        {"command": "start", "description": "Show welcome message"},
+        {"command": "refresh", "description": "Fetch new videos and episodes"},
+        {"command": "rebuild", "description": "Full rebuild of all caches"},
+        {"command": "updatemodel", "description": "Re-download the embedding model"},
+    ]})
+
     offset = 0
     while not _shutdown:
         if args.dev:
